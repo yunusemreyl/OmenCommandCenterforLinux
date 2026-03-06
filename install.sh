@@ -237,14 +237,17 @@ LAUNCHER
         cp data/90-hp-omen-key.rules /etc/udev/rules.d/
     fi
     if [ -f data/hp-omen-key.service ]; then
-        mkdir -p /usr/lib/systemd/user
-        cp data/hp-omen-key.service /usr/lib/systemd/user/
+        cp data/hp-omen-key.service /etc/systemd/system/
     fi
     if [ -f data/omen-key-listener.sh ]; then
         cp data/omen-key-listener.sh /usr/libexec/hp-manager/
         chmod +x /usr/libexec/hp-manager/omen-key-listener.sh
     fi
-    log "Omen Key handler installed"
+    # Enable Omen Key system service
+    systemctl daemon-reload
+    systemctl enable hp-omen-key.service 2>/dev/null || true
+    systemctl restart hp-omen-key.service 2>/dev/null || true
+    log "Omen Key handler installed (system service)"
 
     # ── Driver module management ──
     # Enable automatic loading of hp-omen-core on boot
@@ -299,7 +302,10 @@ fi
 echo "HP Laptop Manager kaldırılıyor..."
 systemctl stop hp-manager.service 2>/dev/null
 systemctl disable hp-manager.service 2>/dev/null
+systemctl stop hp-omen-key.service 2>/dev/null
+systemctl disable hp-omen-key.service 2>/dev/null
 rm -f /etc/systemd/system/hp-manager.service
+rm -f /etc/systemd/system/hp-omen-key.service
 rm -f /usr/bin/hp-manager
 rm -f /usr/bin/hp-manager-uninstall
 rm -rf /usr/libexec/hp-manager
@@ -310,7 +316,6 @@ rm -f /usr/share/applications/com.yyl.hpmanager.desktop
 rm -f /usr/share/icons/hicolor/48x48/apps/hp_logo.png
 rm -f /etc/udev/rules.d/90-hp-omen-key.rules
 rm -f /usr/lib/systemd/user/hp-omen-key.service
-rm -f /usr/libexec/hp-manager/omen-key-listener.sh
 rm -f /etc/modprobe.d/hp-omen-core.conf
 rm -f /etc/modules-load.d/hp-omen-core.conf
 systemctl daemon-reload

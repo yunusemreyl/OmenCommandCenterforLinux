@@ -16,7 +16,7 @@ def T(k):
     return _T(k)
 
 
-APP_VERSION = "4.7"
+APP_VERSION = "4.8"
 GITHUB_REPO = "yunusemreyl/LaptopManagerForHP"
 GITHUB_API_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
 GITHUB_RELEASES_URL = f"https://github.com/{GITHUB_REPO}/releases/latest"
@@ -218,12 +218,36 @@ class SettingsPage(Gtk.Box):
 
     @staticmethod
     def _version_compare(v1, v2):
-        def parts(v):
-            return [int(x) for x in v.split(".") if x.isdigit()]
-        p1, p2 = parts(v1), parts(v2)
-        for a, b in zip(p1, p2):
-            if a != b: return a - b
-        return len(p1) - len(p2)
+        """Compare two version strings. Returns >0 if v1>v2, <0 if v1<v2, 0 if equal.
+        Handles pre-release tags: '4.7-rc2' < '4.7' (release)."""
+        import re
+        def parse(v):
+            # Split into numeric part and optional pre-release suffix
+            m = re.match(r'^([\d.]+)(?:-(.+))?$', v.strip())
+            if not m:
+                return ([0], '')
+            nums = [int(x) for x in m.group(1).split('.') if x.isdigit()]
+            pre = m.group(2) or ''  # empty string = release (higher than any pre-release)
+            return (nums, pre)
+        n1, pre1 = parse(v1)
+        n2, pre2 = parse(v2)
+        # Compare numeric parts first
+        for a, b in zip(n1, n2):
+            if a != b:
+                return a - b
+        if len(n1) != len(n2):
+            return len(n1) - len(n2)
+        # Same numeric version: release (no pre) > pre-release
+        if not pre1 and pre2:
+            return 1   # v1 is release, v2 is pre-release
+        if pre1 and not pre2:
+            return -1  # v1 is pre-release, v2 is release
+        # Both have pre-release tags: compare lexicographically
+        if pre1 < pre2:
+            return -1
+        if pre1 > pre2:
+            return 1
+        return 0
 
     # ── Theme / Lang ──
     def _on_theme(self, dd, _):

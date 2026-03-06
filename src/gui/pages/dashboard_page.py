@@ -131,6 +131,7 @@ class DashboardPage(Gtk.Box):
         self._cpu_prev = None       # (total, idle) for delta calc
         self._data = {}             # latest bg-fetched snapshot
         self._busy = False          # guard against overlapping bg threads
+        self._temp_unit = "C"       # temperature unit preference
 
         global _NVIDIA_SMI
         if _NVIDIA_SMI is None:
@@ -143,6 +144,15 @@ class DashboardPage(Gtk.Box):
     # ── public ────────────────────────────────────────────────────────────
     def set_service(self, svc):
         self.service = svc
+
+    def set_temp_unit(self, unit):
+        self._temp_unit = unit
+
+    def _format_temp(self, celsius):
+        """Format temperature value for display in the user's preferred unit."""
+        if self._temp_unit == "F":
+            return f"{int(celsius * 9 / 5 + 32)}°F"
+        return f"{int(celsius)}°C"
 
     def cleanup(self):
         if self._timer_id:
@@ -516,8 +526,8 @@ class DashboardPage(Gtk.Box):
         self._kern_lbl.set_label(f"Kernel {si.get('kernel', '')}")
 
         # Temps — from direct hwmon reading
-        self._cpu_temp.set_label(f"{int(d.get('cpu_temp', 0))} °C")
-        self._gpu_temp.set_label(f"{int(d.get('gpu_temp', 0))} °C")
+        self._cpu_temp.set_label(self._format_temp(d.get('cpu_temp', 0)))
+        self._gpu_temp.set_label(self._format_temp(d.get('gpu_temp', 0)))
 
         # Battery
         cap = d.get("bat_cap")
@@ -527,7 +537,7 @@ class DashboardPage(Gtk.Box):
             self._bat_status_lbl.set_label(d.get("bat_stat", ""))
             health = d.get("bat_health")
             if health is not None:
-                self._bat_health_lbl.set_label(f"{T('health')}: %{health}")
+                self._bat_health_lbl.set_label(f"{T('health')}: {health}%")
             else:
                 self._bat_health_lbl.set_label("")
         else:

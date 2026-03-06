@@ -10,6 +10,16 @@ gi.require_version('Gtk', '4.0')
 from gi.repository import Gtk, Gdk, GLib
 
 
+import sys
+import os
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
+
+def T(k):
+    from i18n import T as _T
+    return _T(k)
+
+
 # Default curve points (temp_C, fan_pct)
 DEFAULT_POINTS = [
     (35, 0),
@@ -156,12 +166,12 @@ class FanCurveWidget(Gtk.DrawingArea):
         cr.set_font_size(10)
         cr.set_source_rgba(1, 1, 1, 0.35)
         cr.move_to(PAD_L + graph_w / 2 - 25, h - 3)
-        cr.show_text("Sıcaklık (°C)")
+        cr.show_text(T("temp_axis"))
 
         cr.save()
         cr.move_to(12, PAD_T + graph_h / 2 + 25)
         cr.rotate(-math.pi / 2)
-        cr.show_text("Fan Hızı (%)")
+        cr.show_text(T("fan_speed_axis"))
         cr.restore()
 
         # Fill under curve

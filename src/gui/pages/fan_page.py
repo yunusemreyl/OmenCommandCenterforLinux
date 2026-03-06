@@ -188,8 +188,11 @@ def T(k):
 
 
 def _find_hwmon_by_name(name):
-    for d in sorted(os.listdir("/sys/class/hwmon")):
-        path = os.path.join("/sys/class/hwmon", d)
+    base = "/sys/class/hwmon"
+    if not os.path.exists(base):
+        return None
+    for d in sorted(os.listdir(base)):
+        path = os.path.join(base, d)
         nf = os.path.join(path, "name")
         try:
             with open(nf) as f:
@@ -480,9 +483,9 @@ class FanPage(Gtk.Box):
         hw_limits_str = f" (CPU: ~{cpu_w}W, GPU: ~{gpu_w}W limitine kadar)" if (cpu_w or gpu_w) else ""
 
         profiles = [
-            ("power-saver", "🔋", T("saver"), "Maksimum pil ömrü için enerji tasarrufu sağlar. (Düşük Güç Limitleri)"),
-            ("balanced", "⚖️", T("balanced"), "Güç ve tasarruf arasında denge kurar. (Optimize Güç Limitleri)"),
-            ("performance", "🚀", T("performance"), f"Tüm limitleri kaldırır ve en yüksek performansı almanızı sağlar.{hw_limits_str}"),
+            ("power-saver", "🔋", T("saver"), T("saver_tooltip")),
+            ("balanced", "⚖️", T("balanced"), T("balanced_tooltip")),
+            ("performance", "🚀", T("performance"), f"{T('performance_tooltip')}{hw_limits_str}"),
         ]
         self.profile_buttons = {}
         for pid, emoji, label, desc in profiles:
@@ -595,7 +598,7 @@ class FanPage(Gtk.Box):
         if not sensors:
             self.sensor_box.append(Gtk.Label(label=T("no_sensor"), css_classes=["stat-lbl"]))
             return
-        cats = {"CPU": [], "GPU": [], "Diğer": []}
+        cats = {"CPU": [], "GPU": [], T("other_sensors"): []}
         for s in sensors:
             lbl = s["label"].lower()
             dr = s["driver"].lower()

@@ -91,6 +91,15 @@ TRANSLATIONS = {
         "gamemode_desc": "Feral Interactive oyun optimizatörü",
         # Temperature unit
         "temp_unit": "Sıcaklık Birimi", "celsius": "Celsius (°C)", "fahrenheit": "Fahrenheit (°F)",
+        # Fan curve widget
+        "temp_axis": "Sıcaklık (°C)", "fan_speed_axis": "Fan Hızı (%)",
+        # Sensor categories
+        "other_sensors": "Diğer",
+        # Profile tooltips
+        "saver_tooltip": "Maksimum pil ömrü için enerji tasarrufu sağlar. (Düşük Güç Limitleri)",
+        "balanced_tooltip": "Güç ve tasarruf arasında denge kurar. (Optimize Güç Limitleri)",
+        "performance_tooltip": "Tüm limitleri kaldırır ve en yüksek performansı almanızı sağlar.",
+        "performance_lbl": "Performans 🚀",
     },
     "en": {
         # Nav
@@ -175,6 +184,14 @@ TRANSLATIONS = {
         "gamemode_desc": "Feral Interactive game optimizer",
         # Temperature unit
         "temp_unit": "Temperature Unit", "celsius": "Celsius (°C)", "fahrenheit": "Fahrenheit (°F)",
+        # Fan curve widget
+        "temp_axis": "Temperature (°C)", "fan_speed_axis": "Fan Speed (%)",
+        # Sensor categories
+        "other_sensors": "Other",
+        # Profile tooltips
+        "saver_tooltip": "Maximum battery life with reduced power limits.",
+        "balanced_tooltip": "Balance between power and efficiency.",
+        "performance_tooltip": "Remove all power limits for maximum performance.",
     },
 }
 

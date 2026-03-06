@@ -3,7 +3,7 @@
 HP Laptop Manager - D-Bus Daemon Service
 Root olarak çalışır, donanım erişimi sağlar.
 """
-import sys, os, time, threading, logging, json, colorsys, math, shutil, subprocess, re, typing, glob, platform
+import sys, os, time, threading, logging, json, copy, colorsys, math, shutil, subprocess, re, typing, glob, platform
 from gi.repository import GLib
 from pydbus import SystemBus
 
@@ -451,6 +451,8 @@ state: typing.Dict[str, typing.Any] = {
     "brightness": 100,
     "direction": "ltr",
     "power": True,
+    "fan_mode": "auto",
+    "power_profile": "balanced",
 }
 
 ALLOWED_PACKAGES = {
@@ -471,11 +473,16 @@ engine = AnimationEngine(rgb_ctrl)
 def save_state():
     with lock:
         try:
-            os.makedirs(os.path.dirname(CONFIG_FILE), exist_ok=True)
-            with open(CONFIG_FILE, "w") as f:
-                json.dump(state, f)
+            snapshot = copy.deepcopy(state)
         except Exception as e:
-            logger.error(f"State save error: {e}")
+            logger.error(f"State snapshot error: {e}")
+            return
+    try:
+        os.makedirs(os.path.dirname(CONFIG_FILE), exist_ok=True)
+        with open(CONFIG_FILE, "w") as f:
+            json.dump(snapshot, f)
+    except Exception as e:
+        logger.error(f"State save error: {e}")
 
 
 def load_state():
@@ -516,6 +523,14 @@ def load_state():
                         state["direction"] = loaded["direction"]
                     if isinstance(loaded.get("power"), bool):
                         state["power"] = loaded["power"]
+                    # Restore fan mode
+                    fm = loaded.get("fan_mode")
+                    if fm in ("auto", "max", "custom"):
+                        state["fan_mode"] = fm
+                    # Restore power profile
+                    pp = loaded.get("power_profile")
+                    if isinstance(pp, str) and pp in ("power-saver", "balanced", "performance"):
+                        state["power_profile"] = pp
         except Exception:
             pass
 
@@ -601,6 +616,10 @@ class HPManagerService(object):
         """Set fan mode: 'auto', 'max', or 'custom'."""
         logger.info(f"SetFanMode: {mode}")
         ok = fan_ctrl.set_mode(mode)
+        if ok:
+            with lock:
+                state["fan_mode"] = mode
+            save_state()
         return "OK" if ok else "FAIL"
 
     def SetFanTarget(self, fan, rpm):
@@ -630,6 +649,10 @@ class HPManagerService(object):
         if profile not in power_ctrl.get_profiles():
             return "FAIL"
         ok = power_ctrl.set_profile(profile)
+        if ok:
+            with lock:
+                state["power_profile"] = profile
+            save_state()
         return "OK" if ok else "FAIL"
 
     def GetPowerProfile(self):
@@ -779,6 +802,27 @@ def main():
         sys.exit(1)
 
     load_state()
+
+    # Restore fan mode from last session
+    if fan_ctrl.is_available():
+        saved_fan = state.get("fan_mode", "auto")
+        # Custom mode requires RPM targets which aren't persisted;
+        # fall back to auto to prevent fans running at 0 RPM.
+        if saved_fan == "custom":
+            saved_fan = "auto"
+            state["fan_mode"] = "auto"
+            logger.warning("Custom fan mode not restorable (no saved targets), falling back to auto")
+        if saved_fan in ("auto", "max"):
+            ok = fan_ctrl.set_mode(saved_fan)
+            logger.info(f"Restored fan mode '{saved_fan}' from saved state (success={ok})")
+
+    # Restore power profile from last session
+    if power_ctrl.available:
+        saved_pp = state.get("power_profile", "balanced")
+        if saved_pp in power_ctrl.get_profiles():
+            ok = power_ctrl.set_profile(saved_pp)
+            logger.info(f"Restored power profile '{saved_pp}' from saved state (success={ok})")
+
     if rgb_ctrl.is_available():
         engine.start()
         logger.info("RGB engine started")

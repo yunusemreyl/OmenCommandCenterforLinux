@@ -7,7 +7,10 @@ import sys, os, json
 try:
     import tomllib  # Python 3.11+
 except ImportError:
-    import tomli as tomllib  # fallback
+    try:
+        import tomli as tomllib  # fallback for Python ≤3.10
+    except ImportError:
+        tomllib = None  # No TOML support — will use JSON config only
 import gi
 gi.require_version('Gtk', '4.0')
 gi.require_version('Adw', '1')
@@ -44,7 +47,7 @@ from pages.mux_page import MUXPage
 from pages.settings_page import SettingsPage
 from pages.dashboard_page import DashboardPage
 
-APP_VERSION = "4.7"
+APP_VERSION = "4.8"
 CONFIG_FILE = os.path.expanduser("~/.config/hp-manager.toml")
 CONFIG_FILE_JSON = os.path.expanduser("~/.config/hp-manager.json")
 
@@ -88,30 +91,45 @@ class HPManagerWindow(Gtk.ApplicationWindow):
 
     def _load_config(self):
         try:
-            if os.path.exists(CONFIG_FILE):
+            if os.path.exists(CONFIG_FILE) and tomllib is not None:
                 with open(CONFIG_FILE, "rb") as f:
                     data = tomllib.load(f)
                 self.app_theme = data.get("theme", "dark")
                 self.temp_unit = data.get("temp_unit", "C")
                 set_lang(data.get("lang", "tr"))
             elif os.path.exists(CONFIG_FILE_JSON):
-                # Auto-migrate from old JSON config
                 with open(CONFIG_FILE_JSON) as f:
                     data = json.load(f)
                 self.app_theme = data.get("theme", "dark")
                 self.temp_unit = data.get("temp_unit", "C")
                 set_lang(data.get("lang", "tr"))
-                self._save_config()  # write TOML
+                self._save_config()
+            elif os.path.exists(CONFIG_FILE) and tomllib is None:
+                # TOML file exists but no TOML parser — read as JSON fallback
+                with open(CONFIG_FILE_JSON if os.path.exists(CONFIG_FILE_JSON) else CONFIG_FILE) as f:
+                    pass  # Cannot parse TOML, skip
         except Exception:
             pass
+
+    @staticmethod
+    def _toml_escape(val):
+        """Sanitize a string value for safe TOML embedding."""
+        return str(val).replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n')
 
     def _save_config(self):
         try:
             os.makedirs(os.path.dirname(CONFIG_FILE), exist_ok=True)
+            # Write both TOML and JSON for compatibility
+            theme = self._toml_escape(self.app_theme)
+            lang = self._toml_escape(get_lang())
+            temp_unit = self._toml_escape(self.temp_unit)
             with open(CONFIG_FILE, "w") as f:
-                f.write(f'theme = "{self.app_theme}"\n')
-                f.write(f'lang = "{get_lang()}"\n')
-                f.write(f'temp_unit = "{self.temp_unit}"\n')
+                f.write(f'theme = "{theme}"\n')
+                f.write(f'lang = "{lang}"\n')
+                f.write(f'temp_unit = "{temp_unit}"\n')
+            # Also save JSON fallback for systems without tomllib
+            with open(CONFIG_FILE_JSON, "w") as f:
+                json.dump({"theme": self.app_theme, "lang": get_lang(), "temp_unit": self.temp_unit}, f)
         except Exception:
             pass
 
@@ -819,6 +837,7 @@ class HPManagerWindow(Gtk.ApplicationWindow):
         # Sync initial theme to gauges
         self.fan_page.set_dark(self.app_theme == "dark")
         self.fan_page.set_temp_unit(self.temp_unit)
+        self.dashboard_page.set_temp_unit(self.temp_unit)
 
         # Sync settings dropdowns to saved config
         self._rebuilding = True
@@ -938,6 +957,8 @@ class HPManagerWindow(Gtk.ApplicationWindow):
         self._save_config()
         if hasattr(self, 'fan_page'):
             self.fan_page.set_temp_unit(unit)
+        if hasattr(self, 'dashboard_page'):
+            self.dashboard_page.set_temp_unit(unit)
 
     def _rebuild_pages(self):
         """Destroy and recreate all pages so T() picks up the new language."""
@@ -988,6 +1009,7 @@ class HPManagerWindow(Gtk.ApplicationWindow):
             # Restore theme + temp_unit state
             self.fan_page.set_dark(self.app_theme == "dark")
             self.fan_page.set_temp_unit(self.temp_unit)
+            self.dashboard_page.set_temp_unit(self.temp_unit)
 
             # Restore settings dropdowns
             self.settings_page.set_theme_index(0 if self.app_theme == "dark" else 1 if self.app_theme == "light" else 2)

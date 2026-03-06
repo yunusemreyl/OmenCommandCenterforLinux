@@ -1,12 +1,13 @@
 [Unit]
 Description=HP Omen Key Handler — launches HP Manager on Omen Key press
-After=graphical-session.target
+After=multi-user.target hp-manager.service
+Wants=hp-manager.service
 
 [Service]
 Type=simple
 ExecStart=/usr/libexec/hp-manager/omen-key-listener.sh
 Restart=on-failure
-RestartSec=3
+RestartSec=5
 
 [Install]
-WantedBy=default.target
+WantedBy=multi-user.target

@@ -9,7 +9,6 @@ try:
     from i18n import T
 except ImportError:
     # Fallback if running standalone for testing (and sys.path not set)
-    import sys, os
     sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     from i18n import T
 

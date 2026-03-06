@@ -1,4 +1,3 @@
-# Omen Key → HP Manager launcher
-# When HP WMI hotkeys input device is detected, start the key listener
-ACTION=="add", SUBSYSTEM=="input", ATTRS{name}=="HP WMI hotkeys", \
-  MODE="0666", TAG+="systemd", ENV{SYSTEMD_USER_WANTS}+="hp-omen-key.service"
+# Omen Key — set device permissions for the key listener
+# The hp-omen-key.service (system service) handles activation independently
+ACTION=="add", SUBSYSTEM=="input", ATTRS{name}=="HP WMI hotkeys", MODE="0666"

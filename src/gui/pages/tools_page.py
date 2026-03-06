@@ -322,22 +322,22 @@ class ToolsPage(Gtk.Box):
                     try:
                         subprocess.run(["pkexec", "pacman", "-S", "--noconfirm", pkg], check=True, capture_output=True, timeout=300)
                         success, method = True, "pacman"
-                    except: pass
+                    except Exception: pass
                 elif DISTRO == "fedora" and shutil.which("dnf"):
                     try:
                         subprocess.run(["pkexec", "dnf", "install", "-y", pkg], check=True, capture_output=True, timeout=300)
                         success, method = True, "dnf"
-                    except: pass
+                    except Exception: pass
                 elif DISTRO == "debian" and shutil.which("apt"):
                     try:
                         subprocess.run(["pkexec", "apt", "install", "-y", pkg], check=True, capture_output=True, timeout=300)
                         success, method = True, "apt"
-                    except: pass
+                    except Exception: pass
                 elif DISTRO == "suse" and shutil.which("zypper"):
                     try:
                         subprocess.run(["pkexec", "zypper", "install", "-y", pkg], check=True, capture_output=True, timeout=300)
                         success, method = True, "zypper"
-                    except: pass
+                    except Exception: pass
 
             # 2. AUR (Arch only, if it is an AUR package)
             if not success and is_aur and pkg:
@@ -348,7 +348,7 @@ class ToolsPage(Gtk.Box):
                         # We use standard user run, asking for pw natively if the helper attempts it via sudo.
                         subprocess.run([aur_helper, "-S", "--noconfirm", pkg], check=True, capture_output=True, timeout=600)
                         success, method = True, f"AUR ({aur_helper})"
-                    except: pass
+                    except Exception: pass
 
             # 3. Flatpak Fallback (if native fails or doesn't exist)
             if not success and flatpak_id and shutil.which("flatpak"):
@@ -356,7 +356,7 @@ class ToolsPage(Gtk.Box):
                     subprocess.run(["flatpak", "remote-add", "--if-not-exists", "flathub", "https://dl.flathub.org/repo/flathub.flatpakrepo"], capture_output=True, timeout=30)
                     subprocess.run(["flatpak", "install", "-y", "--noninteractive", "flathub", flatpak_id], check=True, capture_output=True, timeout=600)
                     success, method = True, "Flatpak"
-                except: pass
+                except Exception: pass
 
             GLib.idle_add(self._install_done, tool["id"], success, method)
 
