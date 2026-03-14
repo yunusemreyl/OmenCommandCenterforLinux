@@ -148,21 +148,34 @@ class KeyboardPage(Gtk.Box):
         try:
             st = json.loads(self.service.GetState())
             self.win_lock_sw.set_active(st.get("win_lock", False))
+            self.prtsc_fix_sw.set_active(st.get("prtsc_fix", False))
+            self.f1_fix_sw.set_active(st.get("f1_fix", False))
         except Exception: pass
 
     def _on_win_lock(self, sw, state):
         if self.service:
-            self.service.SetWinLock(state)
+            try:
+                self.service.SetWinLock(state)
+            except Exception: pass
         return False
 
     def _on_apply_fixes(self, btn):
-        # Logic to apply udev/hwdb fixes will go here
-        diag = Gtk.MessageDialog(
-            transient_for=self.get_root(),
-            message_type=Gtk.MessageType.INFO,
-            buttons=Gtk.ButtonsType.OK,
-            text="Applying Keyboard Fixes",
-            secondary_text="This feature will update your system's keyboard layout rules. Requires root."
-        )
-        diag.connect("response", lambda r, id: r.destroy())
-        diag.present()
+        if not self.service: return
+        
+        prtsc = self.prtsc_fix_sw.get_active()
+        f1 = self.f1_fix_sw.get_active()
+        
+        try:
+            self.service.SetKeyboardFixes(prtsc, f1)
+            
+            diag = Gtk.MessageDialog(
+                transient_for=self.get_root(),
+                message_type=Gtk.MessageType.INFO,
+                buttons=Gtk.ButtonsType.OK,
+                text=T("apply_shortcuts"),
+                secondary_text="Keyboard fixes have been applied and will persist across reboots."
+            )
+            diag.connect("response", lambda r, id: r.destroy())
+            diag.present()
+        except Exception as e:
+            print(f"Error applying fixes: {e}")
