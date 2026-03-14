@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Settings Page with GitHub update checker — i18n via T()."""
-import os, platform, threading, json, subprocess, shutil, tempfile
+import os, platform, threading, json, subprocess, shutil, tempfile, glob
 import gi
 gi.require_version('Gtk', '4.0')
 from gi.repository import Gtk, GLib
@@ -491,22 +491,89 @@ class SettingsPage(Gtk.Box):
         GLib.timeout_add(2000, lambda: btn.set_label(T("copy_debug_log") or "Copy Debug Info") or False)
         
     def _gather_debug_info(self):
-        import platform, subprocess
-        out = [f"HP Laptop Manager Version: {APP_VERSION}"]
-        out.append(f"OS Default: {self._get_distro()}")
-        out.append(f"Kernel: {platform.release()}")
-        out.append(f"python_version: {platform.python_version()}")
-        out.append("Loaded Modules:")
+        import platform, subprocess, os, glob
+        out = [f"--- DEBUG INFO (v{APP_VERSION}) ---"]
+        
+        # 1. DMI Data
+        board_id = "Unknown"
+        try:
+            if os.path.exists("/sys/class/dmi/id/board_name"):
+                with open("/sys/class/dmi/id/board_name", "r") as f:
+                    board_id = f.read().strip()
+                out.append(f"Board ID: {board_id}")
+            if os.path.exists("/sys/class/dmi/id/product_name"):
+                with open("/sys/class/dmi/id/product_name", "r") as f:
+                    out.append(f"Product Name: {f.read().strip()}")
+        except: pass
+
+        # 2. WMI GUIDs
+        guids = {
+            "95F24279-4D7B-4334-9387-ACCDC67EF61C": "WMI EVENT GUID",
+            "5FB7F034-2C63-45E9-BE91-3D44E2C707E4": "WMI BIOS GUID"
+        }
+        for guid, name in guids.items():
+            found = False
+            if os.path.exists("/sys/bus/wmi/devices/"):
+                for d in os.listdir("/sys/bus/wmi/devices/"):
+                    if guid.lower() in d.lower():
+                        found = True
+                        break
+            out.append(f"{name}: {'Found' if found else 'Not Found'}")
+
+        # 3. Platform Profile
+        pp_path = "/sys/firmware/acpi/platform_profile"
+        if os.path.exists(pp_path):
+            out.append(f"Platform Profile Path: {pp_path}")
+            try:
+                with open(pp_path, "r") as f:
+                    out.append(f"Active Profile: {f.read().strip()}")
+            except: out.append("Active Profile: Read Error")
+        else:
+            out.append("Platform Profile: Not Supported")
+
+        # 4. Thermal Version (Heuristic)
+        v1_boards = ["8BAB", "8BCD", "8C78", "8C99", "8C9C", "8D41", "8BBE", "8BD4", "8BD5"] 
+        if board_id in v1_boards or os.path.exists(pp_path):
+            out.append("Thermal Version: 1 (Detected via DMI/Platform Profile)")
+        else:
+            out.append("Thermal Version: 0 (Legacy or Unknown)")
+
+        # 5. Hwmon / Fans
+        hwmon_found = False
+        for hdir in glob.glob("/sys/class/hwmon/hwmon*"):
+            try:
+                with open(os.path.join(hdir, "name"), "r") as f:
+                    if f.read().strip() == "hp":
+                        hwmon_found = True
+                        out.append(f"Hwmon Path: {hdir} (hp)")
+                        for fan_path in sorted(glob.glob(os.path.join(hdir, "fan*_input"))):
+                            fname = os.path.basename(fan_path)
+                            fnum = fname.split("_")[0].replace("fan", "")
+                            try:
+                                with open(fan_path, "r") as ff:
+                                    out.append(f"Fan {fnum} Speed: {ff.read().strip()} RPM")
+                            except: pass
+                        pwm_file = os.path.join(hdir, "pwm_enable")
+                        if os.path.exists(pwm_file):
+                            try:
+                                with open(pwm_file, "r") as pf:
+                                    out.append(f"PWM Control: {pf.read().strip()}")
+                            except: pass
+                        break
+            except: continue
+        if not hwmon_found:
+            out.append("Hwmon (hp): Not Found")
+
+        # 6. Kernel Modules
+        out.append("\nLoaded Modules:")
         try:
             lsmod_out = subprocess.check_output(["lsmod"], stderr=subprocess.DEVNULL, timeout=2).decode(errors='ignore')
-            for mod in ('hp_wmi', 'hp_rgb_lighting', 'hp_omen_core'):
-                if mod in lsmod_out:
-                    out.append(f"  - {mod}: Yes")
-                else:
-                    out.append(f"  - {mod}: No")
-        except Exception:
-            pass
-        out.append("Service Status:")
+            for mod in ('hp_wmi', 'hp_rgb_lighting'):
+                out.append(f"  - {mod}: {'Yes' if mod in lsmod_out else 'No'}")
+        except: pass
+
+        # 7. Service Status
+        out.append("\nService Status:")
         try:
             status = subprocess.check_output(["systemctl", "status", "com.yyl.hpmanager.service"], stderr=subprocess.STDOUT, timeout=2).decode(errors='ignore')
             lines = status.splitlines()
@@ -514,4 +581,21 @@ class SettingsPage(Gtk.Box):
                 out.append(f"  {lines[i].strip()}")
         except Exception as e:
             out.append(f"  Error: {e}")
+
+        # 8. Kernel Logs (dmesg)
+        out.append("\nKernel Logs:")
+        try:
+            dmesg_cmd = "dmesg | grep -iE 'hp_wmi|wmi|hp-manager' | tail -n 10"
+            logs = subprocess.check_output(dmesg_cmd, shell=True, stderr=subprocess.DEVNULL, timeout=3).decode(errors='ignore')
+            if not logs.strip():
+                journal_cmd = "journalctl -k --no-pager | grep -iE 'hp_wmi|wmi|hp-manager' | tail -n 10"
+                logs = subprocess.check_output(journal_cmd, shell=True, stderr=subprocess.DEVNULL, timeout=3).decode(errors='ignore')
+            
+            if logs.strip():
+                out.append(logs.strip())
+            else:
+                out.append("No relevant logs found.")
+        except:
+            out.append("Could not access dmesg/journal (insufficient permissions).")
+
         return "\n".join(out)
