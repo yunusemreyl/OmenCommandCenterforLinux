@@ -5,14 +5,9 @@ Sidebar navigation ile 5 sekme + ayarlar.
 """
 import sys, os, json, fcntl
 
-# --- SINGLE INSTANCE LOCK ---
-lock_file = "/tmp/hp_laptop_manager.lock"
-try:
-    _lock_fp = open(lock_file, 'w')
-    fcntl.lockf(_lock_fp, fcntl.LOCK_EX | fcntl.LOCK_NB)
-except (IOError, OSError):
-    print("Application is already running.")
-    sys.exit(1)
+# --- SINGLE INSTANCE HANDLING ---
+# We rely on Gtk.Application (D-Bus) for single instance management.
+# Launching the app again will trigger the 'activate' signal on the existing process.
 
 try:
     import tomllib  # Python 3.11+
@@ -1080,19 +1075,18 @@ class HPManagerWindow(Gtk.ApplicationWindow):
 class HPManagerApp(Adw.Application):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        self.win = None
         self.connect('activate', self._on_activate)
 
     def _on_activate(self, app):
-        print("Activating application window...", flush=True)
-        win = HPManagerWindow(application=app)
-        win.present()
+        if not self.win:
+            self.win = HPManagerWindow(application=app)
+        self.win.present()
 
 
 def main():
-    print("Initializing Application...", flush=True)
-    # Use a distinct ID for the GUI to avoid conflict with the daemon service name
-    # and use NON_UNIQUE to ensure it always launches a new instance for now
-    app = HPManagerApp(application_id="com.yyl.hpmanager.gui", flags=Gio.ApplicationFlags.FLAGS_NONE)
+    # Use a distinct ID for the GUI to ensure single-instance via D-Bus
+    app = HPManagerApp(application_id="com.yyl.hpmanager.gui")
     exit_status = app.run(sys.argv)
     sys.exit(exit_status)
 
