@@ -1,3 +1,0 @@
-# Omen Key — set device permissions for the key listener
-# The hp-omen-key.service (system service) handles activation independently
-ACTION=="add", SUBSYSTEM=="input", ATTRS{name}=="HP WMI hotkeys", MODE="0666"
