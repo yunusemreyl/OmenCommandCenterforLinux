@@ -16,7 +16,7 @@ def T(k):
     return _T(k)
 
 
-APP_VERSION = "1.1.3"
+APP_VERSION = "1.1.4"
 GITHUB_REPO = "yunusemreyl/LaptopManagerForHP"
 GITHUB_API_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
 GITHUB_RELEASES_URL = f"https://github.com/{GITHUB_REPO}/releases/latest"
