@@ -198,9 +198,9 @@ DKMSRGB
 
     # Install via DKMS
     info "Installing via DKMS..."
-    dkms add -m "$MODNAME" -v "$MODVER"
+    dkms add -m "$MODNAME" -v "$MODVER" || true
     dkms build -m "$MODNAME" -v "$MODVER"
-    dkms install -m "$MODNAME" -v "$MODVER"
+    dkms install -m "$MODNAME" -v "$MODVER" --force
 
     # ── Secure Boot check ───────────────────────────────────────────────────────
     SECUREBOOT=false
