@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
 HP Laptop Manager - D-Bus Daemon Service
-Root olarak çalışır, donanım erişimi sağlar.
 """
 import sys, os, time, threading, logging, json, copy, colorsys, math, shutil, subprocess, re, typing, glob, platform
 from gi.repository import GLib
