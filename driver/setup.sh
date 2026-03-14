@@ -173,6 +173,7 @@ do_install() {
         dkms remove -m "$MODNAME" -v "$MODVER" --all 2>/dev/null || true
     fi
     rm -rf "/usr/src/${MODNAME}-${MODVER}"
+    mkdir -p "/usr/src/${MODNAME}-${MODVER}"
 
     # Ensure /usr/src directory exists and copy source files
     # Prepare source for DKMS

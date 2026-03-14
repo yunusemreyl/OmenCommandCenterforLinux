@@ -1,5 +1,5 @@
 
- # HP Laptop Manager (Linux) v1.1.2 #
+ # HP Laptop Manager (Linux) v1.1.3 #
 <p align="center">
   <img src="images/hplogolight.png" alt="Logo" width="250">
 
@@ -21,6 +21,13 @@
 </p>
 
 **HP Laptop Manager** is a native Linux application designed to unlock the full potential of HP Omen and Victus series laptops. It serves as an open-source alternative to the official OMEN Gaming Hub, providing essential controls in a modern, user-friendly interface.
+
+**New in v1.1.3:**
+
+- 🎹 **Keyboard Shortcuts & Hardware Fixes**: New dedicated page for OMEN/Victus hotkeys, Windows Key lock (F10), and hardware fixes for PrtSc/F1.
+- 🌈 **8-Zone RGB Support**: Expanded lighting control to support high-end OMEN models with 8-zone keyboards.
+- 🛠️ **Driver Install Fixes**: Resolved the `cp: target '/usr/src/...' No such file or directory` error and improved DKMS header detection.
+- 🔄 **State Restoration**: Windows Key lock and 8-zone colors are now correctly restored after a reboot.
 
 **New in v1.1.2:**
 

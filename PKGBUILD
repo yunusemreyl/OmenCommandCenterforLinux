@@ -3,7 +3,7 @@
 
 pkgname=hp-laptop-manager-git
 _pkgname=HP-Laptop-Manager
-pkgver=1.1.2.r0.g1234567
+pkgver=1.1.3
 pkgrel=1
 pkgdesc="Advanced HP Omen/Victus laptop manager for Linux with RGB, Fan, and MUX control"
 arch=('x86_64')
@@ -70,12 +70,12 @@ EOF
   chmod +x "$pkgdir/usr/bin/hp-manager"
 
   # DKMS Driver
-  _dkms_dir="$pkgdir/usr/src/hp-rgb-lighting-1.0.0"
+  _dkms_dir="$pkgdir/usr/src/hp-rgb-lighting-1.1.3"
   mkdir -p "$_dkms_dir"
   cp driver/hp-rgb-lighting.c "$_dkms_dir/"
   cp driver/Makefile "$_dkms_dir/"
   cp driver/dkms.conf "$_dkms_dir/"
   
   # Set version in dkms.conf if needed
-  sed -i 's/PACKAGE_VERSION=.*/PACKAGE_VERSION="1.0.0"/' "$_dkms_dir/dkms.conf"
+  sed -i 's/PACKAGE_VERSION=.*/PACKAGE_VERSION="1.1.3"/' "$_dkms_dir/dkms.conf"
 }
