@@ -751,41 +751,56 @@ class HPManagerService(object):
         except Exception:
             pass
 
-        # CPU temp — match fan page logic: coretemp → k10temp → acpitz
-        pkg_temp: float = 0.0
-        for drv in ("coretemp", "k10temp", "acpitz"):
+        # CPU temp detection — Improved with better priority and fallbacks
+        cpu_candidates = []
+        # zenpower/k10temp (AMD), coretemp (Intel), then others
+        for drv in ("zenpower", "k10temp", "coretemp", "cpu_thermal", "acpitz", "hp_wmi"):
             hp = _find_hwmon_by_name(drv)
-            if hp:
-                if drv == "coretemp":
-                    core_temps = []
-                    try:
-                        for label_file in glob.glob(os.path.join(hp, "temp*_label")):
-                            with open(label_file) as f:
-                                label = f.read().strip()
-                            input_file = label_file.replace("_label", "_input")
-                            if os.path.exists(input_file):
-                                with open(input_file) as f:
-                                    t = int(f.read().strip()) / 1000
-                                if label.startswith("Core"):
-                                    core_temps.append(t)
-                                elif label == "Package id 0":
-                                    pkg_temp = t
+            if not hp:
+                continue
+
+            for tf in glob.glob(os.path.join(hp, "temp*_input")):
+                try:
+                    with open(tf) as f:
+                        t = int(f.read().strip()) / 1000
+                    
+                    label_path = tf.replace("_input", "_label")
+                    label = ""
+                    if os.path.exists(label_path):
+                        with open(label_path) as f:
+                            label = f.read().strip().lower()
+                    
+                    # Ignore invalid readings
+                    if t <= 0 or t > 120:
+                        continue
+
+                    # Assign weight based on label and driver
+                    weight = 0
+                    if any(x in label for x in ("tctl", "tdie", "package id 0", "core")):
+                        weight = 100
+                    elif drv in ("zenpower", "k10temp", "coretemp"):
+                        weight = 50
+                    elif drv == "acpitz":
+                        weight = -50 # Fallback
                         
-                        if core_temps:
-                            info["cpu_temp"] = sum(core_temps) / len(core_temps)
-                        elif float(pkg_temp) > 0:
-                            info["cpu_temp"] = pkg_temp
+                    cpu_candidates.append((t, weight, drv))
+                except Exception:
+                    continue
+        
+        if cpu_candidates:
+            # Sort by weight (desc) and then temperature (desc) to get the most relevant/active sensor
+            cpu_candidates.sort(key=lambda x: (x[1], x[0]), reverse=True)
+            info["cpu_temp"] = cpu_candidates[0][0]
+        else:
+            # Last ditch effort: any hwmon with 'cpu' in label or name
+            try:
+                for path in glob.glob("/sys/class/hwmon/hwmon*/temp*_input"):
+                    with open(path) as f:
+                        t = int(f.read().strip()) / 1000
+                    if 30 < t < 100: # reasonable idle/load range
+                        info["cpu_temp"] = t
                         break
-                    except Exception as e:
-                        logger.error(f"Exception in coretemp logic: {e}")
-                        pass
-                else:
-                    try:
-                        with open(os.path.join(hp, "temp1_input")) as f:
-                            info["cpu_temp"] = int(f.read().strip()) / 1000
-                            break
-                    except Exception:
-                        pass
+            except Exception: pass
 
         # GPU temp — nvidia-smi first, amdgpu hwmon fallback
         if shutil.which("nvidia-smi"):
