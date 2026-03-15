@@ -42,8 +42,6 @@ else:
 sys.path.insert(0, BASE_DIR)
 sys.path.insert(0, os.path.dirname(BASE_DIR))
 
-from pages.games_page import GamesPage
-from pages.tools_page import ToolsPage
 from pages.fan_page import FanPage
 from pages.lighting_page import LightingPage
 from pages.mux_page import MUXPage
@@ -51,7 +49,7 @@ from pages.settings_page import SettingsPage
 from pages.dashboard_page import DashboardPage
 from pages.keyboard_page import KeyboardPage
 
-APP_VERSION = "1.1.4"
+APP_VERSION = "1.1.5"
 CONFIG_FILE = os.path.expanduser("~/.config/hp-manager.toml")
 CONFIG_FILE_JSON = os.path.expanduser("~/.config/hp-manager.json")
 
@@ -546,13 +544,33 @@ class HPManagerWindow(Gtk.ApplicationWindow):
             color: {fg_dim};
         }}
         .temp-circle {{
-            background-color: {card_bg};
+            background: radial-gradient(circle, {accent_glow} 0%, {card_bg} 100%);
             border: 2px solid {accent};
             border-radius: 50%;
             padding: 30px;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
-            min-width: 140px;
-            min-height: 140px;
+            box-shadow: 0 0 30px {accent_glow};
+            min-width: 150px;
+            min-height: 150px;
+            transition: all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }}
+        .temp-circle:hover {{
+            box-shadow: 0 0 50px {accent_shadow};
+            transform: scale(1.05);
+            border-color: {accent_hover};
+        }}
+        .sensor-bar {{
+            background: {accent};
+            border-radius: 4px;
+            opacity: 0.5;
+        }}
+        .sensor-card-item {{
+            padding: 10px;
+            border-radius: 10px;
+            background: alpha({fg}, 0.03);
+            transition: all 0.2s ease;
+        }}
+        .sensor-card-item:hover {{
+            background: alpha({fg}, 0.07);
         }}
         .tool-status {{
             font-size: 12px;
@@ -759,15 +777,16 @@ class HPManagerWindow(Gtk.ApplicationWindow):
         }}
         .pill-frame {{
             background: {card_bg};
-            border-radius: 12px;
-            border: 1px solid {sep_color};
+            border-radius: 14px;
+            border: 1px solid {card_border};
             box-shadow: 0px 4px 10px rgba(0,0,0,0.08);
-            transition: all 250ms ease-out;
+            transition: all 300ms cubic-bezier(0.2, 1, 0.2, 1);
         }}
         .pill-frame:hover {{
-            background: {accent_dim};
-            border-color: {accent_hover};
-            box-shadow: 0px 6px 14px rgba(0,0,0,0.15);
+            background: {accent_glow};
+            border-color: {accent};
+            box-shadow: 0px 8px 20px {accent_shadow};
+            transform: translateY(-1px);
         }}
 
         .debug-console {{
@@ -838,14 +857,6 @@ class HPManagerWindow(Gtk.ApplicationWindow):
         # Spacer
         sidebar.append(Gtk.Label(vexpand=True))
 
-        # Games at bottom
-        games_btn = self._make_nav_button("games", T("games"), "applications-games-symbolic")
-        sidebar.append(games_btn)
-
-        # Tools at bottom (above settings)
-        tools_btn = self._make_nav_button("tools", T("tools"), "applications-utilities-symbolic")
-        sidebar.append(tools_btn)
-
         # Settings at bottom
         settings_btn = self._make_nav_button("settings", T("settings"), "emblem-system-symbolic")
         sidebar.append(settings_btn)
@@ -860,8 +871,6 @@ class HPManagerWindow(Gtk.ApplicationWindow):
 
         # ── Create pages ──
         self.dashboard_page = DashboardPage(service=self.service, on_navigate=self._navigate)
-        self.games_page = GamesPage()
-        self.tools_page = ToolsPage(service=self.service)
         self.fan_page = FanPage(service=self.service)
         self.lighting_page = LightingPage(service=self.service)
         self.keyboard_page = KeyboardPage(service=self.service)
@@ -873,8 +882,6 @@ class HPManagerWindow(Gtk.ApplicationWindow):
         )
 
         self.stack.add_named(self.dashboard_page, "dashboard")
-        self.stack.add_named(self.games_page, "games")
-        self.stack.add_named(self.tools_page, "tools")
         self.stack.add_named(self.fan_page, "fan")
         self.stack.add_named(self.lighting_page, "lighting")
         self.stack.add_named(self.keyboard_page, "keyboard")
@@ -928,6 +935,11 @@ class HPManagerWindow(Gtk.ApplicationWindow):
             else:
                 if "active" in btn.get_css_classes():
                     btn.remove_css_class("active")
+        
+        # Trigger page data refresh on visit
+        page = self.stack.get_child_by_name(page_id)
+        if hasattr(page, "refresh"):
+            page.refresh()
 
     def _update_logo(self):
         from gi.repository import Adw, GdkPixbuf
@@ -989,8 +1001,8 @@ class HPManagerWindow(Gtk.ApplicationWindow):
         # Live-update nav labels
         label_map = {
             "dashboard": T("dashboard"),
-            "games": T("games"), "fan": T("fan"), "lighting": T("lighting"),
-            "mux": T("mux"), "tools": T("tools"), "settings": T("settings"),
+            "fan": T("fan"), "lighting": T("lighting"),
+            "mux": T("mux"), "settings": T("settings"),
             "keyboard": T("keyboard"),
         }
         for pid, lbl in self.nav_labels.items():
@@ -1025,7 +1037,7 @@ class HPManagerWindow(Gtk.ApplicationWindow):
                 self.lighting_page.cleanup()
 
             # Remove old pages from stack
-            for name in ("dashboard", "games", "tools", "fan", "lighting", "mux", "settings"):
+            for name in ("dashboard", "fan", "lighting", "keyboard", "mux", "settings"):
                 child = self.stack.get_child_by_name(name)
                 if child:
                     self.stack.remove(child)
@@ -1037,10 +1049,9 @@ class HPManagerWindow(Gtk.ApplicationWindow):
 
             # Recreate pages
             self.dashboard_page = DashboardPage(service=self.service)
-            self.games_page = GamesPage()
-            self.tools_page = ToolsPage(service=self.service)
             self.fan_page = FanPage(service=self.service)
             self.lighting_page = LightingPage(service=self.service)
+            self.keyboard_page = KeyboardPage(service=self.service)
             self.mux_page = MUXPage(service=self.service)
             self.settings_page = SettingsPage(
                 on_theme_change=self._on_theme_change,
@@ -1049,10 +1060,9 @@ class HPManagerWindow(Gtk.ApplicationWindow):
             )
 
             self.stack.add_named(self.dashboard_page, "dashboard")
-            self.stack.add_named(self.games_page, "games")
-            self.stack.add_named(self.tools_page, "tools")
             self.stack.add_named(self.fan_page, "fan")
             self.stack.add_named(self.lighting_page, "lighting")
+            self.stack.add_named(self.keyboard_page, "keyboard")
             self.stack.add_named(self.mux_page, "mux")
             self.stack.add_named(self.settings_page, "settings")
 

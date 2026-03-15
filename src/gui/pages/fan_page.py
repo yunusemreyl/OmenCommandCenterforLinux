@@ -145,7 +145,30 @@ class RotatingFanWidget(Gtk.DrawingArea):
     def _draw(self, _, cr, w, h):
         cx, cy = w / 2, h / 2
         r = min(cx, cy) - 10
+        inner_r = r - 12
 
+        # 1. Background ring
+        cr.set_line_width(4)
+        if self._dark:
+            cr.set_source_rgba(1, 1, 1, 0.05)
+        else:
+            cr.set_source_rgba(0, 0, 0, 0.05)
+        cr.arc(cx, cy, r - 2, 0, 2 * math.pi)
+        cr.stroke()
+
+        # 2. Progress ring (RPM scale)
+        if self.val > 0:
+            cr.set_line_width(4)
+            # Gradient color based on intensity
+            if self.val > 80: cr.set_source_rgb(1.0, 0.2, 0.2) # Redish
+            elif self.val > 50: cr.set_source_rgb(1.0, 0.6, 0.2) # Orange
+            else: cr.set_source_rgb(0.2, 0.6, 1.0) # Blueish
+            
+            start_angle = -math.pi / 2
+            cr.arc(cx, cy, r - 2, start_angle, start_angle + (self.val / 100) * 2 * math.pi)
+            cr.stroke()
+
+        # 3. Fan Image
         if self.fan_surface is not None:
             cr.save()
             cr.translate(cx, cy)
@@ -154,18 +177,17 @@ class RotatingFanWidget(Gtk.DrawingArea):
             img_w = self.fan_surface.get_width()
             img_h = self.fan_surface.get_height()
             
-            scale_x = (r * 2) / img_w
-            scale_y = (r * 2) / img_h
+            scale_x = (inner_r * 2) / img_w
+            scale_y = (inner_r * 2) / img_h
             scale = min(scale_x, scale_y)
             
             cr.scale(scale, scale)
             cr.set_source_surface(self.fan_surface, -img_w / 2, -img_h / 2)
             
-            opacity = 0.3 if self.val == 0 else 0.5 + (0.5 * (self.val / 100))
+            opacity = 0.2 if self.val == 0 else 0.4 + (0.6 * (self.val / 100))
             if self._dark:
                 cr.paint_with_alpha(opacity)
             else:
-                # Tint image purely black for light backgrounds
                 cr.save()
                 cr.paint_with_alpha(opacity)
                 cr.set_source_rgba(0, 0, 0, 1.0)
@@ -174,12 +196,11 @@ class RotatingFanWidget(Gtk.DrawingArea):
                 cr.restore()
             cr.restore()
         else:
-            # Fallback circle if no image
-            cr.arc(cx, cy, r, 0, 2 * math.pi)
+            cr.arc(cx, cy, inner_r, 0, 2 * math.pi)
             if self._dark:
-                cr.set_source_rgba(1, 1, 1, 0.2)
+                cr.set_source_rgba(1, 1, 1, 0.1)
             else:
-                cr.set_source_rgba(0, 0, 0, 0.2)
+                cr.set_source_rgba(0, 0, 0, 0.1)
             cr.fill()
 
 def T(k):
@@ -321,8 +342,9 @@ class FanPage(Gtk.Box):
         self.monitor.start()
 
         self._build_ui()
-        self._timer = GLib.timeout_add(1000, self._refresh)
-        self._anim_timer = GLib.timeout_add(33, self._anim_tick)
+        self._timer = GLib.timeout_add(1500, self._refresh) # Increased interval slightly
+        self._anim_timer = GLib.timeout_add(40, self._anim_tick) # 25 FPS is enough
+        self._sensor_widgets = {} # Storage for efficient sensor updates
 
     def _anim_tick(self):
         self.fan1_gauge.tick_rotation()
@@ -420,29 +442,25 @@ class FanPage(Gtk.Box):
         temp_center_container.set_halign(Gtk.Align.CENTER)
         temp_center_container.set_valign(Gtk.Align.CENTER)
         
-        temp_circle = Gtk.Box.new(Gtk.Orientation.VERTICAL, 15)
+        temp_circle = Gtk.Box.new(Gtk.Orientation.VERTICAL, 10)
         temp_circle.set_halign(Gtk.Align.CENTER)
         temp_circle.set_valign(Gtk.Align.CENTER)
         temp_circle.add_css_class("temp-circle")
         
-        cpu_box = Gtk.Box.new(Gtk.Orientation.VERTICAL, 2)
-        cpu_box.set_halign(Gtk.Align.CENTER)
-        self.cpu_label = Gtk.Label(label="--°C", css_classes=["stat-big"])
+        cpu_box = Gtk.Box.new(Gtk.Orientation.VERTICAL, 0)
+        cpu_box.append(Gtk.Label(label="CPU", css_classes=["dim-label"]))
+        self.cpu_label = Gtk.Label(label="--°C", css_classes=["title-1"])
         cpu_box.append(self.cpu_label)
-        self.cpu_name = Gtk.Label(label="CPU", css_classes=["stat-lbl"])
-        cpu_box.append(self.cpu_name)
         temp_circle.append(cpu_box)
 
         sep = Gtk.Separator.new(Gtk.Orientation.HORIZONTAL)
         sep.set_size_request(60, -1)
         temp_circle.append(sep)
 
-        gpu_box = Gtk.Box.new(Gtk.Orientation.VERTICAL, 2)
-        gpu_box.set_halign(Gtk.Align.CENTER)
-        self.gpu_label = Gtk.Label(label="--°C", css_classes=["stat-big"])
+        gpu_box = Gtk.Box.new(Gtk.Orientation.VERTICAL, 0)
+        gpu_box.append(Gtk.Label(label="GPU", css_classes=["dim-label"]))
+        self.gpu_label = Gtk.Label(label="--°C", css_classes=["title-2"])
         gpu_box.append(self.gpu_label)
-        self.gpu_name = Gtk.Label(label="GPU", css_classes=["stat-lbl"])
-        gpu_box.append(self.gpu_name)
         temp_circle.append(gpu_box)
         
         temp_center_container.append(temp_circle)
@@ -467,18 +485,31 @@ class FanPage(Gtk.Box):
         self.fan_warning.set_visible(False)
         fan_temp_card.append(self.fan_warning)
 
-        # Sensor expander
-        expander_btn = Gtk.Button()
-        expander_btn.add_css_class("flat")
+        # Sensor expander as a Pill
+        self.sensor_pill = Gtk.Frame()
+        self.sensor_pill.add_css_class("pill-frame")
+        self.sensor_pill.set_cursor(Gdk.Cursor.new_from_name("pointer"))
+        
+        pill_content = Gtk.Box(spacing=10)
+        pill_content.set_margin_top(8)
+        pill_content.set_margin_bottom(8)
+        pill_content.set_margin_start(12)
+        pill_content.set_margin_end(12)
+        
         self._expander_arrow = Gtk.Image.new_from_icon_name("pan-down-symbolic")
         self._expander_arrow.set_pixel_size(16)
-        exp_box = Gtk.Box(spacing=6, halign=Gtk.Align.CENTER)
-        exp_box.append(self._expander_arrow)
+        pill_content.append(self._expander_arrow)
+        
         self._sensor_label = Gtk.Label(label=T("all_sensors"), css_classes=["stat-lbl"])
-        exp_box.append(self._sensor_label)
-        expander_btn.set_child(exp_box)
-        expander_btn.connect("clicked", self._toggle_sensors)
-        fan_temp_card.append(expander_btn)
+        pill_content.append(self._sensor_label)
+        
+        self.sensor_pill.set_child(pill_content)
+        
+        gesture = Gtk.GestureClick.new()
+        gesture.connect("pressed", lambda *args: self._toggle_sensors(None))
+        self.sensor_pill.add_controller(gesture)
+        
+        fan_temp_card.append(self.sensor_pill)
 
         self.sensor_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
         self.sensor_box.set_valign(Gtk.Align.START)
@@ -617,83 +648,77 @@ class FanPage(Gtk.Box):
             "pan-up-symbolic" if self._sensors_expanded else "pan-down-symbolic")
 
     def _update_sensor_list(self, sensors):
-        # Clear child widgets (in GTK4 Box, we use get_first_child and get_next_sibling or similar)
-        while True:
-            child = self.sensor_box.get_first_child()
-            if child is None: break
-            self.sensor_box.remove(child)
-        if not sensors:
-            self.sensor_box.append(Gtk.Label(label=T("no_sensor"), css_classes=["stat-lbl"]))
+        if not self._sensors_expanded:
             return
-        cats = {"CPU": [], "GPU": [], "other": []}
+            
+        if not hasattr(self, "_sensor_grid") or not self._sensor_grid:
+            while child := self.sensor_box.get_first_child():
+                self.sensor_box.remove(child)
+                
+            self._sensor_grid = Gtk.Grid(column_spacing=20, row_spacing=20)
+            self._sensor_grid.set_column_homogeneous(True)
+            self._sensor_grid.set_hexpand(True)
+            self.sensor_box.append(self._sensor_grid)
+            
+            self._cpu_pill = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8, css_classes=["card"])
+            self._cpu_pill.append(self._pill_header("CPU", "processor-symbolic"))
+            self._sensor_grid.attach(self._cpu_pill, 0, 0, 1, 1)
+            
+            self._other_pill = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8, css_classes=["card"])
+            self._other_pill.append(self._pill_header(T("other_sensors"), "view-list-symbolic"))
+            self._sensor_grid.attach(self._other_pill, 1, 0, 1, 1)
+
+        # Categorize
         for s in sensors:
-            lbl = s["label"].lower()
-            dr = s["driver"].lower()
+            key = f"{s['driver']}_{s['label']}"
+            val_str = f"{int(s['temp'])}°"
             
-            if "core" in lbl or "cpu" in lbl or "tctl" in lbl or "package id" in lbl:
-                cats["CPU"].append(s)
-            elif "gpu" in lbl or "edge" in lbl or "junction" in lbl or "nouveau" in dr or "amdgpu" in dr or "nvidia" in dr:
-                cats["GPU"].append(s)
+            if key in self._sensor_widgets:
+                lbl, bar = self._sensor_widgets[key]
+                lbl.set_label(val_str)
+                # bar is a Box, we can update its width to show intensity
+                bar.set_size_request(int(min(s['temp'], 100)), 2) 
             else:
-                cats["other"].append(s)
-
-        main_grid = Gtk.Grid(column_spacing=20, column_homogeneous=True)
-        main_grid.set_hexpand(True)
-        
-        def create_pill(title_text, items):
-            if not items: return None
-            pill = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
-            pill.add_css_class("card")
-            pill.set_hexpand(True)
-            
-            title_lbl = Gtk.Label(label=title_text, xalign=0, css_classes=["stat-big"])
-            title_lbl.set_margin_bottom(5)
-            pill.append(title_lbl)
-            
-            for s in items:
-                row = Gtk.Box(spacing=10)
-                driver_lbl = Gtk.Label(label=s["driver"], css_classes=["stat-lbl"], xalign=0)
-                driver_lbl.set_size_request(80, -1)
-                row.append(driver_lbl)
-                row.append(Gtk.Label(label=s["label"], hexpand=True, xalign=0, css_classes=["stat-lbl"]))
-                temp_val = self._format_temp(s['temp'])
-                temp_lbl = Gtk.Label(label=temp_val, xalign=1)
-                temp_lbl.add_css_class("stat-big" if s["temp"] > 80 else "stat-lbl")
+                # Create refined sensor row
+                row = Gtk.Box(spacing=12)
+                row.add_css_class("sensor-card-item")
+                
+                name_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, hexpand=True)
+                lbl_name = Gtk.Label(label=s["label"], xalign=0, css_classes=["stat-lbl"])
+                lbl_name.set_ellipsize(3)
+                name_box.append(lbl_name)
+                
+                # Tiny progress-like bar under the name
+                bar = Gtk.Box(height_request=2, hexpand=False, halign=Gtk.Align.START)
+                bar.add_css_class("sensor-bar")
+                bar.set_size_request(int(min(s['temp'], 80)), 2)
+                name_box.append(bar)
+                
+                row.append(name_box)
+                
+                temp_lbl = Gtk.Label(label=val_str, xalign=1, css_classes=["stat-big"])
                 row.append(temp_lbl)
-                pill.append(row)
-            return pill
+                
+                self._sensor_widgets[key] = (temp_lbl, bar)
+                
+                # Determine pill
+                lbl_low = s["label"].lower()
+                dr_low = s["driver"].lower()
+                if any(x in lbl_low for x in ("core", "cpu", "tctl", "package id")):
+                    self._cpu_pill.append(row)
+                else:
+                    self._other_pill.append(row)
 
-        def _sort_cpu(item):
-            lbl = item["label"].lower()
-            if lbl.startswith("core"):
-                import re
-                m = re.search(r'\d+', lbl)
-                if m:
-                    return (0, int(m.group()))
-            return (1, lbl)
-
-        cats["CPU"].sort(key=_sort_cpu)
-
-        cpu_pill = create_pill("CPU", cats["CPU"])
-        if cpu_pill:
-            cpu_pill.set_vexpand(True)
-            main_grid.attach(cpu_pill, 0, 0, 1, 1)
-
-        right_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=20)
-        right_box.set_hexpand(True)
-        
-        gpu_pill = create_pill("GPU", cats["GPU"])
-        if gpu_pill:
-            right_box.append(gpu_pill)
-            
-        diger_pill = create_pill(T("other_sensors"), cats["other"])
-        if diger_pill:
-            diger_pill.set_vexpand(True)
-            right_box.append(diger_pill)
-            
-        main_grid.attach(right_box, 1, 0, 1, 1)
-
-        self.sensor_box.append(main_grid)
+    def _pill_header(self, title, icon):
+        box = Gtk.Box(spacing=8)
+        box.set_margin_bottom(10)
+        img = Gtk.Image.new_from_icon_name(icon)
+        img.set_pixel_size(16)
+        img.set_opacity(0.7)
+        box.append(img)
+        lbl = Gtk.Label(label=title, xalign=0, css_classes=["section-title"])
+        box.append(lbl)
+        return box
 
     def _set_profile(self, profile):
         if self._block_sync:
@@ -789,8 +814,13 @@ class FanPage(Gtk.Box):
                     if last >= 0 and abs(target_rpm - last) < 300:
                         continue
 
-                    self.service.SetFanTarget(int(str(fn)), target_rpm)
                     self.last_applied_rpm[str(fn)] = target_rpm
+                    
+                    # Apply asynchronously to prevent UI freeze on slow EC/WMI responses
+                    def _apply_async(fidx, rpm):
+                        try: self.service.SetFanTarget(fidx, rpm)
+                        except: pass
+                    threading.Thread(target=_apply_async, args=(int(str(fn)), target_rpm), daemon=True).start()
             except Exception as e:
                 print(f"Fan control error: {e}")
 

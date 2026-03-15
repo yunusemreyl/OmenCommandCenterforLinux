@@ -10,9 +10,9 @@ active_lang = "tr"
 TRANSLATIONS = {
     "tr": {
         # Nav
-        "games": "Oyunlar", "tools": "Araçlar", "fan": "Performans",
+        "fan": "Performans",
         "lighting": "Aydınlatma", "mux": "MUX", "settings": "Ayarlar",
-        "keyboard": "Klavye",
+        "keyboard": "Kısayollar",
         # Fan page
         "fan_control": "Fan Kontrolü", "system_status": "SİSTEM DURUMU",
         "power_profile": "GÜÇ PROFİLİ", "fan_mode": "FAN MODU",
@@ -32,13 +32,15 @@ TRANSLATIONS = {
         "ltr": "Sol → Sağ", "rtl": "Sağ → Sol",
         "win_lock": "Oyun Tuş Kilidi",
         # Keyboard page
-        "keyboard_shortcuts": "Klavye Kısayolları", "special_keys": "ÖZEL TUŞLAR",
-        "omen_key": "Omen Tuşu", "victus_key": "Victus Tuşu",
-        "calc_key": "Hesap Makinesi Tuşu", "prt_sc_fix": "Print Screen (PrtSc) Düzelt",
-        "prt_sc_desc": "PrtSc tuşunun Win+Shift+S yerine gerçek Print Screen olarak çalışmasını sağlar.",
+        "keyboard_shortcuts": "Kısayollar", "special_keys": "ÖZEL TUŞLAR",
+        "omen_key": "Omen Tuşu", "victus_key": "Omen Tuşu",
+        "calc_key": "Hesap Makinesi", "prt_sc_fix": "Print Screen (PrtSc) Düzelt",
+        "prt_sc_desc": "PrtSc tuşunun ekran alıntısı aracı yerine gerçek 'Print Screen' olarak çalışmasını sağlar (Büyük kolaylık!).",
         "f1_fix": "F1 (Sunum) Tuşunu Düzelt",
-        "f1_desc": "F1 tuşunun Super+P yerine standart F1 olarak çalışmasını sağlar.",
-        "apply_shortcuts": "Kısayolları Uygula",
+        "f1_desc": "F1 tuşunun Super+P (Sunum modu) yerine standart F1 olarak çalışmasını sağlar.",
+        "apply_shortcuts": "Değişiklikleri Uygula",
+        "shortcuts_desc": "Laptopunuzdaki bazı tuşların davranışlarını buradan kalıcı olarak değiştirebilirsiniz.",
+        "hwdb_applied": "Klavye düzeltmeleri başarıyla uygulandı.",
         # MUX page
         "mux_switch": "MUX Anahtarlayıcı", "gpu_info": "GPU BİLGİSİ",
         "gpu_card": "Ekran Kartı", "driver_ver": "Sürücü Sürümü",
@@ -62,6 +64,7 @@ TRANSLATIONS = {
         "hardware_profile": "Donanım Profili", "resources": "Kaynak Kullanımı",
         "quick_actions": "Hızlı Aksiyonlar", "clean_memory": "Belleği Temizle",
         "max_fan": "Turbo Fan", "eco_mode": "Eko Modu",
+        "disk": "Disk", "ram": "RAM",
         "power_profile_label": "Güç Profili", "fan_mode_label": "Fan Modu",
         "gpu_mux_label": "GPU / MUX",
         "battery": "Batarya", "ac_power": "Güç Kablosu",
@@ -86,25 +89,7 @@ TRANSLATIONS = {
         "update_success": "Güncelleme başarıyla kuruldu! Uygulamayı yeniden başlatın.",
         "update_failed": "Güncelleme başarısız",
         "restart_app": "Uygulamayı Yeniden Başlat",
-        # Tools page
-        "game_library": "Oyun Kütüphanesi",
-        "search_games": "Oyun ara...",
-        "no_games_found": "Henüz yüklü oyun bulunamadı",
-        "install_hint": "Steam veya Lutris yükleyerek oyunlarınızı buradan yönetin.",
-        "start_game": "Başlat",
-        "games_count": "{count} oyun",
-        "gaming_tools": "Oyun Araçları",
-        "tools_title": "Araçlar",
-        "tools_desc": "Oyun araçlarını tek tıkla kurun ve yönetin.",
-        "install": "Kur", "installed": "✓ Yüklü", "not_installed": "Yüklü Değil",
-        "installing": "Kuruluyor...", "install_failed": "Kurulum başarısız",
-        "retry": "Tekrar Dene",
-        "steam_desc": "Valve'ın oyun platformu ve mağazası",
-        "lutris_desc": "Açık kaynak oyun yöneticisi",
-        "protonup_desc": "Proton/Wine-GE sürüm yöneticisi",
-        "heroic_desc": "Epic Games ve GOG istemcisi",
-        "mangohud_desc": "Vulkan/OpenGL performans overlay'i",
-        "gamemode_desc": "Feral Interactive oyun optimizatörü",
+
         # Temperature unit
         "temp_unit": "Sıcaklık Birimi", "celsius": "Celsius (°C)", "fahrenheit": "Fahrenheit (°F)",
         # Fan curve widget
@@ -120,9 +105,9 @@ TRANSLATIONS = {
     },
     "en": {
         # Nav
-        "games": "Games", "tools": "Tools", "fan": "Performance",
+        "fan": "Performance",
         "lighting": "Lighting", "mux": "MUX", "settings": "Settings",
-        "keyboard": "Keyboard",
+        "keyboard": "Shortcuts",
         # Fan page
         "fan_control": "Fan Control", "system_status": "SYSTEM STATUS",
         "power_profile": "POWER PROFILE", "fan_mode": "FAN MODE",
@@ -142,13 +127,15 @@ TRANSLATIONS = {
         "ltr": "Left → Right", "rtl": "Right → Left",
         "win_lock": "Gaming Key Lock",
         # Keyboard page
-        "keyboard_shortcuts": "Keyboard Shortcuts", "special_keys": "SPECIAL KEYS",
-        "omen_key": "Omen Key", "victus_key": "Victus Key",
+        "keyboard_shortcuts": "Shortcuts", "special_keys": "SPECIAL KEYS",
+        "omen_key": "Omen Key", "victus_key": "Omen Key",
         "calc_key": "Calculator Key", "prt_sc_fix": "Fix Print Screen (PrtSc)",
-        "prt_sc_desc": "Makes PrtSc key work as real Print Screen instead of Win+Shift+S.",
+        "prt_sc_desc": "Makes PrtSc key work as real Print Screen instead of triggering Screenshot Tool.",
         "f1_fix": "Fix F1 (Presentation) Key",
-        "f1_desc": "Makes F1 key work as standard F1 instead of Super+P.",
-        "apply_shortcuts": "Apply Shortcuts",
+        "f1_desc": "Makes F1 key work as standard F1 instead of Super+P (Presentation mode).",
+        "apply_shortcuts": "Apply Changes",
+        "shortcuts_desc": "You can permanently change the behavior of certain keys on your laptop here.",
+        "hwdb_applied": "Keyboard fixes have been applied successfully.",
         # MUX page
         "mux_switch": "MUX Switch", "gpu_info": "GPU INFO",
         "gpu_card": "Graphics Card", "driver_ver": "Driver Version",
@@ -172,6 +159,7 @@ TRANSLATIONS = {
         "hardware_profile": "Hardware Profile", "resources": "Resources",
         "quick_actions": "Quick Actions", "clean_memory": "Clean Memory",
         "max_fan": "MAX Fan", "eco_mode": "Eco Mode",
+        "disk": "Disk", "ram": "RAM",
         "power_profile_label": "Power Profile", "fan_mode_label": "Fan Mode",
         "gpu_mux_label": "GPU / MUX",
         "battery": "Battery", "ac_power": "Power Cable",
@@ -196,25 +184,7 @@ TRANSLATIONS = {
         "update_success": "Update installed successfully! Please restart the application.",
         "update_failed": "Update failed",
         "restart_app": "Restart Application",
-        # Tools page
-        "game_library": "Game Library",
-        "search_games": "Search games...",
-        "no_games_found": "No installed games found",
-        "install_hint": "Install Steam or Lutris to manage your games here.",
-        "start_game": "Launch",
-        "games_count": "{count} game(s)",
-        "gaming_tools": "Gaming Tools",
-        "tools_title": "Tools",
-        "tools_desc": "Install and manage gaming tools with one click.",
-        "install": "Install", "installed": "✓ Installed", "not_installed": "Not Installed",
-        "installing": "Installing...", "install_failed": "Installation failed",
-        "retry": "Retry",
-        "steam_desc": "Valve's gaming platform and store",
-        "lutris_desc": "Open source game manager",
-        "protonup_desc": "Proton/Wine-GE version manager",
-        "heroic_desc": "Epic Games and GOG client",
-        "mangohud_desc": "Vulkan/OpenGL performance overlay",
-        "gamemode_desc": "Feral Interactive game optimizer",
+
         # Temperature unit
         "temp_unit": "Temperature Unit", "celsius": "Celsius (°C)", "fahrenheit": "Fahrenheit (°F)",
         # Fan curve widget

@@ -1,5 +1,5 @@
 
- # HP Laptop Manager (Linux) v1.1.4 #
+ # HP Laptop Manager (Linux) v1.1.5 #
 <p align="center">
   <img src="images/hplogolight.png" alt="Logo" width="250">
 
@@ -13,18 +13,24 @@
   <img src="screenshots/mux.png" alt="MUX Switch" width="45%">
 </p>
 <p align="center">
-  <img src="screenshots/games.png" alt="Games" width="45%">
-  <img src="screenshots/tools.png" alt="Tools" width="45%">
-</p>
-<p align="center">
   <img src="screenshots/settings.png" alt="Settings" width="45%">
 </p>
 
 **HP Laptop Manager** is a native Linux application designed to unlock the full potential of HP Omen and Victus series laptops. It serves as an open-source alternative to the official OMEN Gaming Hub, providing essential controls in a modern, user-friendly interface.
 
+**New in v1.1.5:**
+
+- 🚀 **OMEN 16 (2024) Support**: Added official support for 14th Gen OMEN models (Board ID 8C77).
+- 🌪️ **Kernel WMI Fixes**: Resolved the "Query 0x4c error 0x6" issue with advanced thermal fallback and updated custom drivers.
+- 📦 **Resource Monitoring**: Redesigned Dashboard gauges to use modern, boxed linear bars for **Disk, RAM, and Battery**.
+- 🎹 **Keyboard Shortcuts**: Renamed Keyboard page to "Shortcuts" (Kısayollar) with permanent hardware fixes for PrtSc and F1 keys via `udev`.
+- 🧹 **UI Streamlining**: Removed legacy 'Games' and 'Tools' pages to focus on core hardware control and optimize startup performance.
+- 🔧 **Diagnostics Upgrade**: Enhanced "Driver Status" and improved debug logging reliability for newer kernel versions.
+- 🖼️ **Branding Updates**: Integrated official OMEN/Victus logos and refined technical descriptions for a more premium experience.
+
 **New in v1.1.4:**
 
-- ⚡ **Daemon Optimization**: The core daemon service has been optimized, reducing CPU usage from ~50% down to ~1.08% for better system efficiency.
+- ⚡ **Daemon Optimization**: Optimized core service, reducing CPU usage to ~1%.
 
 **New in v1.1.3:**
 

@@ -29,111 +29,122 @@ class KeyboardPage(Gtk.Box):
     def __init__(self, service=None):
         super().__init__()
         self.set_orientation(Gtk.Orientation.VERTICAL)
-        self.set_spacing(20)
+        self.set_spacing(0)
         self.service = service
-        self.set_margin_top(30)
-        self.set_margin_start(40)
-        self.set_margin_end(40)
-        self.set_margin_bottom(30)
-
+        
         self.model_type = _detect_model_type()
         self.branding = "OMEN" if self.model_type == "omen" else "Victus"
+        
+        # Resolve logo path
+        self.logo_path = os.path.join(os.path.dirname(__file__), "..", "..", "..", "images", "omenlogo.png")
+        if not os.path.exists(self.logo_path):
+            self.logo_path = "/usr/share/hp-manager/images/omenlogo.png"
+            
         self._build_ui()
 
     def _build_ui(self):
-        title = Gtk.Label(label=T("keyboard_shortcuts"), xalign=0)
-        title.add_css_class("page-title")
-        self.append(title)
-
         scroll = Gtk.ScrolledWindow(vexpand=True)
         scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
-        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=20)
-
-        # ── Gaming Key Lock (Windows Lock) ──
-        lock_card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=15)
-        lock_card.add_css_class("card")
         
-        lock_row = Gtk.Box(spacing=15)
-        lock_info = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4, hexpand=True)
-        lock_info.append(Gtk.Label(label=T("win_lock"), xalign=0, css_classes=["section-title"]))
-        lock_info.append(Gtk.Label(label="Toggles physical Windows Key lock (Gaming Key).", xalign=0, css_classes=["stat-lbl"]))
-        lock_row.append(lock_info)
+        root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=24)
+        root.set_margin_top(24)
+        root.set_margin_start(32)
+        root.set_margin_end(32)
+        root.set_margin_bottom(24)
+        scroll.set_child(root)
+        self.append(scroll)
 
-        self.win_lock_sw = Gtk.Switch(valign=Gtk.Align.CENTER)
-        self.win_lock_sw.connect("state-set", self._on_win_lock)
-        lock_row.append(self.win_lock_sw)
-        lock_card.append(lock_row)
+        # Header with Logo
+        header = Gtk.Box(spacing=15, valign=Gtk.Align.CENTER)
+        if os.path.exists(self.logo_path):
+            from gi.repository import GdkPixbuf, Gdk
+            pix = GdkPixbuf.Pixbuf.new_from_file_at_scale(self.logo_path, 48, 48, True)
+            img = Gtk.Image.new_from_paintable(Gdk.Texture.new_for_pixbuf(pix))
+            header.append(img)
         
-        # Win Lock Hint
-        lock_card.append(Gtk.Label(
-            label=f"This corresponds to the F10 lock key icon on your {self.branding} laptop.",
-            xalign=0, css_classes=["stat-lbl"]
-        ))
-        content.append(lock_card)
+        title_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        title = Gtk.Label(label=T("keyboard_shortcuts"), xalign=0, css_classes=["title-1"])
+        title_box.append(title)
+        desc = Gtk.Label(label=T("shortcuts_desc"), xalign=0, css_classes=["dim-label"])
+        title_box.append(desc)
+        header.append(title_box)
+        root.append(header)
 
-        # ── Special Keys ──
+        root.append(Gtk.Separator())
+
+        # ── SPECIAL KEYS ──
         keys_card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=15)
         keys_card.add_css_class("card")
-        keys_card.append(Gtk.Label(label=T("special_keys"), xalign=0, css_classes=["section-title"]))
-
-        # Dynamic Row based on model
-        key_name = T("omen_key") if self.model_type == "omen" else T("victus_key")
-        key_desc = f"Opens the {self.branding} Manager application."
-        key_row = self._make_shortcut_row(key_name, key_desc, "hplogolight")
-        keys_card.append(key_row)
+        keys_card.append(Gtk.Label(label=T("special_keys"), xalign=0, css_classes=["heading"]))
+        
+        # Omen/Victus Key
+        omen_row = self._make_shortcut_row(T("omen_key"), 
+                                        "Opens HP Laptop Manager.", 
+                                        self.logo_path)
+        keys_card.append(omen_row)
 
         if self.model_type == "victus":
-            calc_row = self._make_shortcut_row(T("calc_key"), "Launches Calculator application.", "accessories-calculator-symbolic")
+            calc_row = self._make_shortcut_row(T("calculator"), 
+                                            "Launches Calculator application.", 
+                                            "accessories-calculator-symbolic")
             keys_card.append(calc_row)
+        
+        root.append(keys_card)
 
-        content.append(keys_card)
-
-        # ── Fixes ──
-        fix_card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=15)
+        # ── KEYBOARD FIXES (The main meat) ──
+        fix_card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=20)
         fix_card.add_css_class("card")
-        fix_card.append(Gtk.Label(label="KEYBOARD FIXES", xalign=0, css_classes=["section-title"]))
+        
+        fix_header = Gtk.Box(spacing=10)
+        fix_header.append(Gtk.Image.new_from_icon_name("system-run-symbolic"))
+        fix_header.append(Gtk.Label(label=T("driver_status"), xalign=0, css_classes=["heading"]))
+        fix_card.append(fix_header)
 
         # PrtSc Fix
-        prtsc_row = Gtk.Box(spacing=15)
+        prtsc_box = Gtk.Box(spacing=15)
         prtsc_info = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4, hexpand=True)
-        prtsc_info.append(Gtk.Label(label=T("prt_sc_fix"), xalign=0))
-        prtsc_info.append(Gtk.Label(label=T("prt_sc_desc"), xalign=0, css_classes=["stat-lbl"], wrap=True))
-        prtsc_row.append(prtsc_info)
-        
-        self.prtsc_fix_sw = Gtk.Switch(valign=Gtk.Align.CENTER)
-        prtsc_row.append(self.prtsc_fix_sw)
-        fix_card.append(prtsc_row)
+        prtsc_info.append(Gtk.Label(label=T("prt_sc_fix"), xalign=0, css_classes=["title-4"]))
+        prtsc_info.append(Gtk.Label(label=T("prt_sc_desc"), xalign=0, css_classes=["dim-label"], wrap=True))
+        prtsc_box.append(prtsc_info)
+        self.prtsc_sw = Gtk.Switch(valign=Gtk.Align.CENTER)
+        prtsc_box.append(self.prtsc_sw)
+        fix_card.append(prtsc_box)
 
         fix_card.append(Gtk.Separator())
 
         # F1 Fix
-        f1_row = Gtk.Box(spacing=15)
+        f1_box = Gtk.Box(spacing=15)
         f1_info = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4, hexpand=True)
-        f1_info.append(Gtk.Label(label=T("f1_fix"), xalign=0))
-        f1_info.append(Gtk.Label(label=T("f1_desc"), xalign=0, css_classes=["stat-lbl"], wrap=True))
-        f1_row.append(f1_info)
-        
-        self.f1_fix_sw = Gtk.Switch(valign=Gtk.Align.CENTER)
-        f1_row.append(self.f1_fix_sw)
-        fix_card.append(f1_row)
+        f1_info.append(Gtk.Label(label=T("f1_fix"), xalign=0, css_classes=["title-4"]))
+        f1_info.append(Gtk.Label(label=T("f1_desc"), xalign=0, css_classes=["dim-label"], wrap=True))
+        f1_box.append(f1_info)
+        self.f1_sw = Gtk.Switch(valign=Gtk.Align.CENTER)
+        f1_box.append(self.f1_sw)
+        fix_card.append(f1_box)
 
-        content.append(fix_card)
+        root.append(fix_card)
 
-        # Apply Button
-        apply_btn = Gtk.Button(label=T("apply_shortcuts"))
-        apply_btn.add_css_class("suggested-action")
-        apply_btn.set_margin_top(10)
-        apply_btn.connect("clicked", self._on_apply_fixes)
-        content.append(apply_btn)
+        # Footer Action
+        footer = Gtk.Box(spacing=12, halign=Gtk.Align.END)
+        self.apply_btn = Gtk.Button(label=T("apply_shortcuts"))
+        self.apply_btn.add_css_class("suggested-action")
+        self.apply_btn.connect("clicked", self._on_apply)
+        footer.append(self.apply_btn)
+        root.append(footer)
 
-        scroll.set_child(content)
-        self.append(scroll)
-        
         self._sync_state()
 
     def _make_shortcut_row(self, title, desc, icon_name):
         row = Gtk.Box(spacing=15)
-        icon = Gtk.Image.new_from_icon_name(icon_name)
+        if icon_name.startswith("/") or icon_name.endswith(".png"):
+            if os.path.exists(icon_name):
+                from gi.repository import GdkPixbuf, Gdk
+                pix = GdkPixbuf.Pixbuf.new_from_file_at_scale(icon_name, 24, 24, True)
+                icon = Gtk.Image.new_from_paintable(Gdk.Texture.new_for_pixbuf(pix))
+            else:
+                icon = Gtk.Image.new_from_icon_name("image-missing")
+        else:
+            icon = Gtk.Image.new_from_icon_name(icon_name)
         icon.set_pixel_size(24)
         row.append(icon)
         
@@ -147,35 +158,27 @@ class KeyboardPage(Gtk.Box):
         if not self.service: return
         try:
             st = json.loads(self.service.GetState())
-            self.win_lock_sw.set_active(st.get("win_lock", False))
-            self.prtsc_fix_sw.set_active(st.get("prtsc_fix", False))
-            self.f1_fix_sw.set_active(st.get("f1_fix", False))
+            self.prtsc_sw.set_active(st.get("prtsc_fix", False))
+            self.f1_sw.set_active(st.get("f1_fix", False))
         except Exception: pass
 
-    def _on_win_lock(self, sw, state):
-        if self.service:
-            try:
-                self.service.SetWinLock(state)
-            except Exception: pass
-        return False
-
-    def _on_apply_fixes(self, btn):
+    def _on_apply(self, btn):
         if not self.service: return
-        
-        prtsc = self.prtsc_fix_sw.get_active()
-        f1 = self.f1_fix_sw.get_active()
+        p = self.prtsc_sw.get_active()
+        f = self.f1_sw.get_active()
         
         try:
-            self.service.SetKeyboardFixes(prtsc, f1)
+            self.service.SetKeyboardFixes(p, f)
             
-            diag = Gtk.MessageDialog(
+            # Show success toast or info
+            toast = Gtk.MessageDialog(
                 transient_for=self.get_root(),
                 message_type=Gtk.MessageType.INFO,
                 buttons=Gtk.ButtonsType.OK,
-                text=T("apply_shortcuts"),
-                secondary_text="Keyboard fixes have been applied and will persist across reboots."
+                text=T("hwdb_applied")
             )
-            diag.connect("response", lambda r, id: r.destroy())
-            diag.present()
+            toast.connect("response", lambda r, id: r.destroy())
+            toast.present()
         except Exception as e:
-            print(f"Error applying fixes: {e}")
+            print(f"Apply shortcuts failed: {e}")
+

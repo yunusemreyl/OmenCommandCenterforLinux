@@ -39,16 +39,19 @@ class FanController:
             self._read_current_mode()
 
     def _find_hwmon(self):
+        # Try 'hp' first (standard hp-wmi)
         for path in glob.glob("/sys/class/hwmon/hwmon*/name"):
             try:
                 with open(path, 'r') as f:
-                    if f.read().strip() == "hp":
-                        logger.info(f"Found HP hwmon at {os.path.dirname(path)}")
+                    name = f.read().strip()
+                    if name in ("hp", "hp-omen"):
+                        logger.info(f"Found HP/OMEN hwmon at {os.path.dirname(path)} (driver={name})")
                         return os.path.dirname(path)
             except Exception:
                 pass
 
-        for platform_name in ("hp-wmi", "hp_wmi"):
+        # Try platform paths
+        for platform_name in ("hp-wmi", "hp_wmi", "hp-omen"):
             platform_hwmon = f"/sys/devices/platform/{platform_name}/hwmon"
             if os.path.exists(platform_hwmon):
                 try:
@@ -135,10 +138,24 @@ class FanController:
         val = {"auto": 2, "max": 0, "custom": 1}.get(mode)
         if val is None:
             return False
+            
+        # Try pwm1_enable (standard)
         ok = self._sysfs_write("pwm1_enable", val)
+        
+        # Fallback for some OMEN models that use different thermal control
+        if not ok and mode == "max":
+             # Attempt to write to platform device directly if hwmon fail
+             platform_path = "/sys/devices/platform/hp-wmi/thermal_profile"
+             if os.path.exists(platform_path):
+                 try:
+                     with open(platform_path, "w") as f:
+                         f.write("1") # 1 often means performance/max
+                     ok = True
+                 except: pass
+
         if ok:
             self.mode = mode
-            logger.info(f"Fan mode set to {mode} (pwm1_enable={val})")
+            logger.info(f"Fan mode set to {mode} (success={ok})")
         return ok
 
     def set_fan_target(self, fan_num, rpm):
@@ -254,9 +271,16 @@ class PowerProfileController:
                 self.available = True
                 logger.info("PowerProfileController: Using Power-Profiles-Daemon backend")
             except Exception:
-                self.proxy = None
-                self.available = False
-                logger.warning("PowerProfileController: No power profile backend found")
+                # OMEN-specific direct sysfs fallback
+                if os.path.exists("/sys/devices/platform/hp-wmi/thermal_profile") or \
+                   os.path.exists("/sys/devices/platform/hp-omen/thermal_profile"):
+                    self.mode = "omen_direct"
+                    self.available = True
+                    logger.info("PowerProfileController: Using OMEN Direct sysfs backend")
+                else:
+                    self.proxy = None
+                    self.available = False
+                    logger.warning("PowerProfileController: No power profile backend found")
 
     def get_profiles(self):
         if not self.available:
@@ -274,10 +298,15 @@ class PowerProfileController:
         try:
             if self.mode == "ppd":
                 return self.proxy.ActiveProfile
-            tp = self.proxy.active_profile()
-            if "powersave" in tp:   return "power-saver"
-            if "performance" in tp: return "performance"
-            return "balanced"
+            if self.mode == "tuned":
+                tp = self.proxy.active_profile()
+                if "powersave" in tp:   return "power-saver"
+                if "performance" in tp: return "performance"
+                return "balanced"
+            
+            # omen_direct read? (Hard to read back from write-only nodes sometimes, 
+            # we'll assume state or balanced)
+            return state.get("power_profile", "balanced")
         except Exception:
             return "balanced"
 
@@ -287,13 +316,21 @@ class PowerProfileController:
         try:
             if self.mode == "ppd":
                 self.proxy.ActiveProfile = profile
-            else:
+            elif self.mode == "tuned":
                 mapping = {
                     "power-saver": "powersave",
                     "balanced":    "balanced",
                     "performance": "throughput-performance",
                 }
                 self.proxy.switch_profile(mapping.get(profile, "balanced"))
+            elif self.mode == "omen_direct":
+                val = {"power-saver": "0", "balanced": "0", "performance": "1"}.get(profile, "0")
+                for path in ("/sys/devices/platform/hp-wmi/thermal_profile", 
+                             "/sys/devices/platform/hp-omen/thermal_profile"):
+                    if os.path.exists(path):
+                        with open(path, "w") as f:
+                            f.write(val)
+                        break
             return True
         except Exception as e:
             logger.error(f"Power profile set error ({self.mode}): {e}")
@@ -462,14 +499,6 @@ state: typing.Dict[str, typing.Any] = {
     "f1_fix":        False,
 }
 
-ALLOWED_PACKAGES = {
-    "steam":       "com.valvesoftware.Steam",
-    "lutris":      "net.lutris.Lutris",
-    "protonup-qt": "net.davidotek.pupgui2",
-    "heroic":      "com.heroicgameslauncher.hgl",
-    "mangohud":    "org.freedesktop.Platform.VulkanLayer.MangoHud",
-}
-
 fan_ctrl   = FanController()
 rgb_ctrl   = RGBController()
 power_ctrl = PowerProfileController()
@@ -606,6 +635,38 @@ class HPManagerService(object):
         self._gpu_temp_path = None
         self._find_temp_paths()
 
+        # 4. Arka plan izleme başlatılıyor
+        self._info_cache = {}
+        self._fan_cache = {}
+        threading.Thread(target=self._monitor_loop, daemon=True).start()
+
+    def _monitor_loop(self):
+        """Heavy lifting thread to prevent blocking D-Bus calls."""
+        while True:
+            # 1. System Info
+            info = self._static_info.copy()
+            info["cpu_temp"] = self._get_real_cpu_temp()
+            info["gpu_temp"] = self._get_real_gpu_temp()
+            self._info_cache = info
+
+            # 2. Fan Info
+            fans_data = {
+                str(i): {
+                    "current": fan_ctrl.get_current_speed(i),
+                    "max":     fan_ctrl.get_max_speed(i),
+                    "target":  fan_ctrl.get_target_speed(i),
+                }
+                for i in fan_ctrl.found_fans
+            }
+            self._fan_cache = {
+                "available":  fan_ctrl.is_available(),
+                "fan_count":  fan_ctrl.get_fan_count(),
+                "mode":       fan_ctrl.get_mode(),
+                "fans":       fans_data,
+            }
+
+            time.sleep(1.5)
+
     def _find_temp_paths(self):
         best_score = -1000
         RANK_DRV = {"zenpower": 100, "coretemp": 90, "k10temp": 90, "cpu_thermal": 80, "hp_wmi": 60, "acpitz": 30}
@@ -698,20 +759,7 @@ class HPManagerService(object):
         return "OK" if fan_ctrl.set_fan_target(fan, rpm) else "FAIL"
 
     def GetFanInfo(self):
-        fans_data = {
-            str(i): {
-                "current": fan_ctrl.get_current_speed(i),
-                "max":     fan_ctrl.get_max_speed(i),
-                "target":  fan_ctrl.get_target_speed(i),
-            }
-            for i in fan_ctrl.found_fans
-        }
-        return json.dumps({
-            "available":  fan_ctrl.is_available(),
-            "fan_count":  fan_ctrl.get_fan_count(),
-            "mode":       fan_ctrl.get_mode(),
-            "fans":       fans_data,
-        })
+        return json.dumps(self._fan_cache)
 
     def SetPowerProfile(self, profile):
         if profile not in power_ctrl.get_profiles():
@@ -743,21 +791,9 @@ class HPManagerService(object):
         })
 
     def GetSystemInfo(self):
-        now = time.time()
-        si  = state.get("_system_info_cache")
-        
-        if si and (now - state.get("_system_info_last", 0) < 2.0):
-            return json.dumps(si)
+        return json.dumps(self._info_cache)
 
-        info = self._static_info.copy()
-        info["cpu_temp"] = self._get_cached_cpu_temp()
-        info["gpu_temp"] = self._get_cached_gpu_temp()
-
-        state["_system_info_cache"] = info
-        state["_system_info_last"]  = now
-        return json.dumps(info)
-
-    def _get_cached_cpu_temp(self):
+    def _get_real_cpu_temp(self):
         if self._cpu_temp_path and os.path.exists(self._cpu_temp_path):
             try:
                 with open(self._cpu_temp_path) as f:
@@ -765,17 +801,12 @@ class HPManagerService(object):
             except Exception: pass
         return 0.0
 
-    def _get_cached_gpu_temp(self):
+    def _get_real_gpu_temp(self):
         if self._gpu_temp_path and os.path.exists(self._gpu_temp_path):
             try:
                 with open(self._gpu_temp_path) as f:
                     return int(f.read().strip()) / 1000.0
             except Exception: pass
-
-        now = time.time()
-        nv_cache = state.get("_nvidia_smi_cache", {"time": 0, "val": "NOT_REACHABLE"})
-        if now - nv_cache["time"] < 15.0:
-            return nv_cache["val"]
 
         if self._has_nvidia_smi:
             try:
@@ -783,13 +814,9 @@ class HPManagerService(object):
                     ["nvidia-smi", "--query-gpu=temperature.gpu", "--format=csv,noheader,nounits"],
                     stderr=subprocess.DEVNULL, timeout=2
                 ).decode().strip()
-                val = float(out)
-                state["_nvidia_smi_cache"] = {"time": now, "val": val}
-                return val
+                return float(out)
             except Exception:
                 pass
-                
-        state["_nvidia_smi_cache"] = {"time": now, "val": "NOT_REACHABLE"}
         return "NOT_REACHABLE"
 
     def CleanMemory(self):
@@ -800,21 +827,6 @@ class HPManagerService(object):
             return "OK"
         except Exception as e:
             return f"Error: {e}"
-
-    def InstallPackage(self, pkg):
-        flatpak_id = ALLOWED_PACKAGES.get(str(pkg).strip().lower())
-        if not flatpak_id:
-            return "Error: package_not_allowed"
-        if shutil.which("flatpak"):
-            try:
-                subprocess.run(
-                    ["flatpak", "install", "-y", "--noninteractive", "flathub", flatpak_id],
-                    check=True, capture_output=True, timeout=120
-                )
-                return "OK"
-            except Exception:
-                return "Error: flatpak_install_failed"
-        return "No supported package manager found"
 
     def SetWinLock(self, locked):
         logger.info(f"SetWinLock: {'LOCKED' if locked else 'UNLOCKED'}")

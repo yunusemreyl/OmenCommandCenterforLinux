@@ -19,7 +19,7 @@ def T(k):
     return _T(k)
 
 
-APP_VERSION = "1.1.4"
+APP_VERSION = "1.1.5"
 GITHUB_REPO = "yunusemreyl/LaptopManagerForHP"
 GITHUB_API_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
 GITHUB_RELEASES_URL = f"https://github.com/{GITHUB_REPO}/releases/latest"
@@ -159,7 +159,10 @@ class SettingsPage(Gtk.Box):
         hp_rgb_lighting_loaded = self._is_module_loaded("hp_rgb_lighting")
         hp_wmi_loaded = self._is_module_loaded("hp_wmi")
 
-        drivers = [("hp-rgb-lighting", hp_rgb_lighting_loaded), ("hp-wmi (Fan/Thermal/Key)", hp_wmi_loaded)]
+        drivers = [
+            ("hp-rgb-lighting", hp_rgb_lighting_loaded), 
+            ("hp-wmi (Fan/Thermal/Key)", hp_wmi_loaded)
+        ]
         for name, loaded in drivers:
             row = Gtk.Box(spacing=20)
             row.append(Gtk.Label(label=name, hexpand=True, xalign=0))
@@ -594,7 +597,7 @@ class SettingsPage(Gtk.Box):
             out.append("Platform Profile: Not Supported")
 
         # 4. Thermal Version (Heuristic)
-        v1_boards = ["8BAB", "8BCD", "8C78", "8C99", "8C9C", "8D41", "8BBE", "8BD4", "8BD5"] 
+        v1_boards = ["8BAB", "8BCD", "8C77", "8C78", "8C99", "8C9C", "8D41", "8BBE", "8BD4", "8BD5"] 
         if board_id in v1_boards or os.path.exists(pp_path):
             out.append("Thermal Version: 1 (Detected via DMI/Platform Profile)")
         else:

@@ -22,91 +22,47 @@ def T(key):
 # ═════════════════════════════════════════════════════════════════════════════
 _TWO_PI = 2 * math.pi
 
-class DonutChart(Gtk.DrawingArea):
-    """Reusable ring-style percentage gauge drawn via Cairo."""
-
-    __slots__ = ("value", "color", "label", "_rgb")
-
-    def __init__(self, color_hex: str, label: str, size: int = 90):
+class ResourceBox(Gtk.Box):
+    """Linear percentage gauge inside a styled box."""
+    def __init__(self, color_hex: str, label: str):
         super().__init__()
-        self.set_size_request(size, size)
-        self.set_halign(Gtk.Align.CENTER)
+        self.set_orientation(Gtk.Orientation.VERTICAL)
+        self.set_spacing(8)
+        self.set_halign(Gtk.Align.FILL)
         self.set_valign(Gtk.Align.CENTER)
-        self.value = 0.0
-        self.color = color_hex
-        self.label = label
-        self._rgb = self._parse_hex(color_hex)
-        self.set_draw_func(self._draw)
+        self.add_css_class("card")
+        self.set_margin_start(5)
+        self.set_margin_end(5)
 
-    # ── public ────────────────────────────────────────────────────────────
+        # Header: Label (Top Left) & Value (Top Right)
+        header = Gtk.Box()
+        header.set_spacing(10)
+        lbl = Gtk.Label(label=label, xalign=0, css_classes=["dim-label"])
+        header.append(lbl)
+        header.append(Gtk.Label(hexpand=True)) # Spacer
+        self.val_lbl = Gtk.Label(label="0%", xalign=1, css_classes=["title-4"])
+        header.append(self.val_lbl)
+        self.append(header)
+
+        # Level Bar
+        self.bar = Gtk.LevelBar()
+        self.bar.set_min_value(0.0)
+        self.bar.set_max_value(100.0)
+        self.bar.set_value(0.0)
+        self.bar.set_size_request(-1, 8)
+        self.append(self.bar)
+
+        # Custom CSS for the bar color
+        css = f"levelbar block {{ background-color: {color_hex}; border-radius: 4px; }}"
+        provider = Gtk.CssProvider()
+        provider.load_from_data(css.encode())
+        self.bar.get_style_context().add_provider(provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+
     def set_value(self, val: float):
         v = max(0.0, min(100.0, val))
-        if abs(v - self.value) < 0.5:
-            return
-        self.value = v
-        self.queue_draw()
+        self.val_lbl.set_label(f"{int(v)}%")
+        self.bar.set_value(v)
 
-    # ── internal ──────────────────────────────────────────────────────────
-    @staticmethod
-    def _parse_hex(h: str):
-        h = h.lstrip("#")
-        if len(h) != 6:
-            return (1.0, 1.0, 1.0)
-        return (int(h[0:2], 16) / 255.0,
-                int(h[2:4], 16) / 255.0,
-                int(h[4:6], 16) / 255.0)
-
-    def _draw(self, _area, cr, w, h):
-        cx, cy = w / 2.0, h / 2.0
-        radius = min(w, h) / 2.0 - 5
-        cr.set_line_width(8)
-        cr.set_line_cap(cairo.LINE_CAP_ROUND)
-
-        # Detect theme once
-        try:
-            from gi.repository import Adw as _Adw
-            _dark = _Adw.StyleManager.get_default().get_dark()
-        except Exception:
-            _dark = True
-
-        # background track
-        track_alpha = 0.25 if _dark else 0.15
-        cr.set_source_rgba(0.4, 0.4, 0.4, track_alpha)
-        cr.arc(cx, cy, radius, 0, _TWO_PI)
-        cr.stroke()
-
-        # foreground arc
-        if self.value > 0:
-            cr.set_source_rgba(*self._rgb, 0.9)
-            start = -math.pi / 2
-            cr.arc(cx, cy, radius, start,
-                   start + (self.value / 100.0) * _TWO_PI)
-            cr.stroke()
-
-        # filled center circle — contrasting to theme
-        inner_r = radius - 6
-        if _dark:
-            cr.set_source_rgba(0.12, 0.12, 0.14, 0.85)
-        else:
-            cr.set_source_rgba(1.0, 1.0, 1.0, 0.9)
-        cr.arc(cx, cy, inner_r, 0, _TWO_PI)
-        cr.fill()
-
-        # center text — inverted contrast
-        _lum = 0.92 if _dark else 0.12
-        cr.set_source_rgba(_lum, _lum, _lum, 1.0)
-        cr.select_font_face("Sans", cairo.FONT_SLANT_NORMAL,
-                            cairo.FONT_WEIGHT_BOLD)
-        cr.set_font_size(14)
-        pct = f"{int(self.value)}%"
-        ext = cr.text_extents(pct)
-        cr.move_to(cx - ext.width / 2, cy + 5)
-        cr.show_text(pct)
-
-        cr.set_font_size(9)
-        ext2 = cr.text_extents(self.label)
-        cr.move_to(cx - ext2.width / 2, cy + 18)
-        cr.show_text(self.label)
 
 # ═════════════════════════════════════════════════════════════════════════════
 #  DASHBOARD PAGE
@@ -137,12 +93,23 @@ class DashboardPage(Gtk.Box):
             _NVIDIA_SMI = shutil.which("nvidia-smi") or ""
 
         self._build()
-        self._timer_id = GLib.timeout_add(_REFRESH_MS, self._tick)
+        # Delay the first tick to avoid resource contention during app startup
+        GLib.timeout_add(1500, self._initial_start)
 
-        # İlk veri çekimini doğrudan thread ile başlatıyoruz (idle_add kullanmadan)
+    def _initial_start(self):
+        self._tick()
+        self._timer_id = GLib.timeout_add(_REFRESH_MS, self._tick)
+        return False
+
+    def refresh(self):
+        """Public refresh to force a data update on navigation."""
         if not self._busy:
             self._busy = True
             threading.Thread(target=self._fetch, daemon=True).start()
+        # Also update theme for donut charts
+        # Update resources if needed
+        for box in (self._disk_chart, self._ram_chart):
+            if hasattr(box, "refresh"): box.refresh()
 
     # ── public ────────────────────────────────────────────────────────────
     def set_service(self, svc):
@@ -229,26 +196,14 @@ class DashboardPage(Gtk.Box):
 
         card.append(Gtk.Separator())
 
-        # Battery — large donut + textual details
-        bat_box = Gtk.Box(spacing=14, halign=Gtk.Align.CENTER,
-                          vexpand=True, valign=Gtk.Align.CENTER)
-        card.append(bat_box)
-
-        self._bat_donut = DonutChart("#57e389", "BAT", size=80)
-        bat_box.append(self._bat_donut)
-
-        bat_info = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4,
-                           valign=Gtk.Align.CENTER)
-        self._bat_pct_lbl = Gtk.Label(label="—", xalign=0,
-                                      css_classes=["title-2"])
-        self._bat_status_lbl = Gtk.Label(label="", xalign=0,
-                                         css_classes=["dim-label"])
-        self._bat_health_lbl = Gtk.Label(label="", xalign=0,
-                                          css_classes=["dim-label"])
-        bat_info.append(self._bat_pct_lbl)
-        bat_info.append(self._bat_status_lbl)
-        bat_info.append(self._bat_health_lbl)
-        bat_box.append(bat_info)
+        # Battery — Boxed
+        self._bat_chart = ResourceBox("#f5c211", T("battery"))
+        card.append(self._bat_chart)
+        
+        self._bat_status_lbl = Gtk.Label(label="", xalign=0.5, css_classes=["dim-label"])
+        self._bat_health_lbl = Gtk.Label(label="", xalign=0.5, css_classes=["dim-label"])
+        card.append(self._bat_status_lbl)
+        card.append(self._bat_health_lbl)
 
         return card
 
@@ -309,15 +264,12 @@ class DashboardPage(Gtk.Box):
         card.append(self._heading(T("resources")))
         card.append(Gtk.Separator())
 
-        row = Gtk.Box(spacing=12, homogeneous=True, halign=Gtk.Align.CENTER,
-                      vexpand=True, valign=Gtk.Align.CENTER)
-        self._cpu_chart = DonutChart("#3584e4", "CPU", size=130)
-        self._ram_chart = DonutChart("#2ec27e", "RAM", size=130)
-        self._gpu_chart = DonutChart("#e66100", "GPU", size=130)
-        row.append(self._cpu_chart)
-        row.append(self._ram_chart)
-        row.append(self._gpu_chart)
-        card.append(row)
+        column = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=14, hexpand=True)
+        self._disk_chart = ResourceBox("#9d65ff", T("disk"))
+        self._ram_chart = ResourceBox("#2ec27e", T("ram"))
+        column.append(self._disk_chart)
+        column.append(self._ram_chart)
+        card.append(column)
         return card
 
     # ── Quick Actions ─────────────────────────────────────────────────────
@@ -478,21 +430,10 @@ class DashboardPage(Gtk.Box):
             d["gpu_temp"] = self._get_gpu_temp()
 
         # ── CPU % from /proc/stat ─────────────────────────────────────────
+        # ── Disk % from shutil ────────────────────────────────────────────
         try:
-            with open("/proc/stat") as f:
-                parts = f.readline().split()
-            times = list(map(int, parts[1:]))
-            total = sum(times)
-            idle = times[3] + (times[4] if len(times) > 4 else 0)
-            if self._cpu_prev:
-                dt = total - self._cpu_prev[0]
-                di = idle  - self._cpu_prev[1]
-                raw = (1 - di / dt) * 100 if dt else 0
-                # EMA smoothing (α=0.3) to reduce jitter
-                alpha = 0.3
-                self._cpu_smooth = alpha * raw + (1 - alpha) * self._cpu_smooth
-                d["cpu_pct"] = self._cpu_smooth
-            self._cpu_prev = (total, idle)
+            usage = shutil.disk_usage("/")
+            d["disk_pct"] = (usage.used / usage.total) * 100
         except Exception:
             pass
 
@@ -600,24 +541,21 @@ class DashboardPage(Gtk.Box):
         # Battery
         cap = d.get("bat_cap")
         if cap is not None:
-            self._bat_donut.set_value(cap)
-            self._bat_pct_lbl.set_label(f"{cap}%")
-            self._bat_status_lbl.set_label(d.get("bat_stat", ""))
+            self._bat_chart.set_value(cap)
+            self._bat_status_lbl.set_label(f"{cap}% • {d.get('bat_stat', '')}")
             health = d.get("bat_health")
             if health is not None:
                 self._bat_health_lbl.set_label(f"{T('health')}: {health}%")
             else:
                 self._bat_health_lbl.set_label("")
         else:
-            self._bat_donut.set_value(100)
-            self._bat_pct_lbl.set_label("AC")
+            self._bat_chart.set_value(100)
             self._bat_status_lbl.set_label(T("ac_power"))
             self._bat_health_lbl.set_label("")
 
         # Resources
-        self._cpu_chart.set_value(d.get("cpu_pct", 0))
-        self._ram_chart.set_value(d.get("ram_pct", 0))
-        self._gpu_chart.set_value(d.get("gpu_pct", 0))
+        self._disk_chart.set_value(d.get("disk_pct", 0.0))
+        self._ram_chart.set_value(d.get("ram_pct", 0.0))
 
         # Hardware profile pills
         pp = d.get("pp", {})
