@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Dashboard Page — HP Laptop Manager
+Dashboard Page — OMEN Command Center for Linux
 Provides system overview: temps, battery, hardware profile, resource usage,
 and quick actions. All heavy I/O runs in a background thread.
 """

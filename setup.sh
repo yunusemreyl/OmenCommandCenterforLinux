@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# HP Laptop Manager - Unified Setup Tool
+# OMEN Command Center for Linux - Unified Setup Tool
 # Handles installation, uninstallation, and updates.
 
 set -euo pipefail
 
 # --- CONFIGURATION ---
-APP_NAME="HP Laptop Manager"
+APP_NAME="OMEN Command Center for Linux"
 INSTALL_DIR="/usr/libexec/hp-manager"
 DATA_DIR="/usr/share/hp-manager"
 BIN_LINK="/usr/bin/hp-manager"
@@ -279,7 +279,7 @@ LAUNCHER
     # Uninstaller — self-contained, does not rely on original script path
     cat > "$UNINSTALLER_LINK" << 'UNINSTALLER'
 #!/usr/bin/env bash
-# HP Laptop Manager — Uninstaller (auto-generated)
+# OMEN Command Center for Linux — Uninstaller (auto-generated)
 set -euo pipefail
 
 if [ "$(id -u)" -ne 0 ]; then
@@ -307,12 +307,12 @@ rm -rf "/var/lib/hp-manager"
 rm -f /etc/dbus-1/system.d/com.yyl.hpmanager.conf
 rm -f /usr/share/polkit-1/actions/com.yyl.hpmanager.policy
 rm -f /usr/share/applications/com.yyl.hpmanager.desktop
-rm -f /usr/share/icons/hicolor/48x48/apps/hp_logo.png
+rm -f /usr/share/icons/hicolor/48x48/apps/omenapplogo.png
 rm -f /etc/udev/rules.d/90-hp-omen-key.rules
 rm -f /etc/modules-load.d/hp-rgb-lighting.conf
 
 systemctl daemon-reload
-echo "[✓] HP Laptop Manager uninstalled."
+echo "[✓] OMEN Command Center for Linux uninstalled."
 
 # Remove this uninstaller last
 rm -f "$UNINSTALLER_LINK"
@@ -349,7 +349,7 @@ do_uninstall() {
     rm -f /etc/dbus-1/system.d/com.yyl.hpmanager.conf
     rm -f /usr/share/polkit-1/actions/com.yyl.hpmanager.policy
     rm -f /usr/share/applications/com.yyl.hpmanager.desktop
-    rm -f /usr/share/icons/hicolor/48x48/apps/hp_logo.png
+    rm -f /usr/share/icons/hicolor/48x48/apps/omenapplogo.png
     rm -f /etc/udev/rules.d/90-hp-omen-key.rules
     rm -f /etc/modules-load.d/hp-rgb-lighting.conf
 

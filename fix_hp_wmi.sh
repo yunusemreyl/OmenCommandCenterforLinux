@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# HP Laptop Manager - WMI Fix / Restore Tool
+# OMEN Command Center for Linux - WMI Fix / Restore Tool
 # Restores the original stock hp-wmi kernel driver if you experience issues with
 # the custom installed hp-wmi driver.
 

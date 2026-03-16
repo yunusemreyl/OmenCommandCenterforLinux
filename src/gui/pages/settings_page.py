@@ -182,7 +182,7 @@ class SettingsPage(Gtk.Box):
         about_header.append(app_icon)
 
         about_text = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
-        about_text.append(Gtk.Label(label=f"HP Laptop Manager v{APP_VERSION}", xalign=0, css_classes=["stat-big"]))
+        about_text.append(Gtk.Label(label=f"OMEN Command Center for Linux v{APP_VERSION}", xalign=0, css_classes=["stat-big"]))
         about_text.append(Gtk.Label(
             label=f"{T('developer')}: <a href='https://github.com/yunusemreyl'>yunusemreyl</a>",
             use_markup=True, xalign=0, css_classes=["stat-lbl"]

@@ -1,7 +1,7 @@
 
- # HP Laptop Manager (Linux) v1.1.6 #
+ # OMEN Command Center for Linux v1.1.6 #
 <p align="center">
-  <img src="images/hplogolight.png" alt="Logo" width="250">
+  <img src="images/omenapplogo.png" alt="Logo" width="250">
 
 ## 📖 About The Project
 <p align="center">
@@ -16,7 +16,7 @@
   <img src="screenshots/settings.png" alt="Settings" width="45%">
 </p>
 
-**HP Laptop Manager** is a native Linux application designed to unlock the full potential of HP Omen and Victus series laptops. It serves as an open-source alternative to the official OMEN Gaming Hub, providing essential controls in a modern, user-friendly interface.
+**OMEN Command Center for Linux** is a native Linux application designed to unlock the full potential of HP Omen and Victus series laptops. It serves as an open-source alternative to the official OMEN Gaming Hub, providing essential controls in a modern, user-friendly interface.
 
 **New in v1.1.6:**
 
@@ -26,49 +26,6 @@
 - 🌈 **Reversed RGB Layout Engine**: Built an automatic zone-mapping engine to correct the reversed left-to-right keyboard lighting behavior on specific OMEN variants.
 - ⚡ **Background Poller Efficiency**: Eliminated UI stuttering and high CPU spikes by shifting all `nvidia-smi` and ACPI sensor polling strictly to non-blocking background threads with backoff cooldowns.
 
-**New in v1.1.5:**
-
-- 🚀 **OMEN 16 (2024) Support**: Added official support for 14th Gen OMEN models (Board ID 8C77).
-- 🌪️ **Kernel WMI Fixes**: Resolved the "Query 0x4c error 0x6" issue with advanced thermal fallback and updated custom drivers.
-- 📦 **Resource Monitoring**: Redesigned Dashboard gauges to use modern, boxed linear bars for **Disk, RAM, and Battery**.
-- 🎹 **Keyboard Shortcuts**: Renamed Keyboard page to "Shortcuts" (Kısayollar) with permanent hardware fixes for PrtSc and F1 keys via `udev`.
-- 🧹 **UI Streamlining**: Removed legacy 'Games' and 'Tools' pages to focus on core hardware control and optimize startup performance.
-- 🔧 **Diagnostics Upgrade**: Enhanced "Driver Status" and improved debug logging reliability for newer kernel versions.
-- 🖼️ **Branding Updates**: Integrated official OMEN/Victus logos and refined technical descriptions for a more premium experience.
-
-**New in v1.1.4:**
-
-- ⚡ **Daemon Optimization**: Optimized core service, reducing CPU usage to ~1%.
-
-**New in v1.1.3:**
-
-- 🎹 **Keyboard Shortcuts & Hardware Fixes**: New dedicated page for OMEN/Victus hotkeys, Windows Key lock (F10), and hardware fixes for PrtSc/F1.
-- 🌈 **8-Zone RGB Support**: Expanded lighting control to support high-end OMEN models with 8-zone keyboards.
-- 🛠️ **Driver Install Fixes**: Resolved the `cp: target '/usr/src/...' No such file or directory` error and improved DKMS header detection.
-- 🔄 **State Restoration**: Windows Key lock and 8-zone colors are now correctly restored after a reboot.
-
-**New in v1.1.2:**
-
-- ⚡ **Interactive Power Manager Selection**: During installation, users can now choose between `power-profiles-daemon`, `ppd-tuned` (recommended for Fedora), `TLP`, or `auto-cpufreq`.
-- 🛠️ **Pure DKMS Implementation**: Unified driver installation with pure DKMS support. Redundant manual build steps removed, and robust kernel header detection added for Arch-based (CachyOS, Zen), Fedora, and Debian distros.
-- 🔧 **Unified Setup Tool**: Replaced separate `install.sh`, `uninstall.sh`, and `update.sh` with a single, robust `./setup.sh` tool.
-- 🔋 **Enhanced Conflict Detection**: Integrated links to TLP and auto-cpufreq repositories for better user guidance during dependency installation.
-
-**New in v1.1.1:**
-
-- 🔋 **TLP / auto-cpufreq Support**: The app now detects if TLP or auto-cpufreq is managing power profiles and gracefully disables the built-in power mode controls with a clear notification on both the Dashboard and Fan pages.
-- 🖥️ **GPU MUX Tool Installer**: During installation, if no GPU switching tool (`envycontrol` or `prime-select`) is detected, the installer now offers an interactive menu to install one.
-- 🐞 **Debug Information Panel**: A new "Debug Information" section has been added to the Settings page. Users can copy system info (kernel, modules, service status) to the clipboard with one click for easy troubleshooting.
-- ⚡ **Performance Optimizations**: Reduced unnecessary `systemctl` calls by caching conflict checks. TLP/auto-cpufreq status is now only polled every ~25-50 seconds instead of every refresh cycle.
-- 🔧 **In-App Updater Fix**: The auto-updater now uses `setup.sh update` and a simplified, more robust version comparison algorithm.
-
-**Previous Releases:**
-
-**v1.1.0:**
-
-- ✨ **Name Change**: `hp-omen-core` has been renamed to `hp-rgb-lighting` to better reflect its function and support Victus devices appropriately.
-- 🔄 **Kernel 7.0+ Adaptation**: Updated internal checks. Fan control logic defaults to stock `hp-wmi` on kernels >= 7.0, and auto-installs our custom `hp-wmi` module on kernels < 7.0.
-- 🚀 **setup.sh update**: Easily adapt to new kernel updates and ensure old `hp-omen-core` debris is purged from your system with one simple update command.
 
 ## ✨ Features
 

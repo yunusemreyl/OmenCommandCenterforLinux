@@ -26,7 +26,7 @@ echo -e "[i] Current Kernel: $KERNEL_VER"
 # 2. Check for hp-omen-linux driver
 if [ ! -d "/sys/devices/platform/hp-omen" ]; then
     echo -e "${YELLOW}[!] Third-party OMEN driver not detected.${NC}"
-    echo -e "Implementing direct sysfs support in HP Laptop Manager..."
+    echo -e "Implementing direct sysfs support in OMEN Command Center for Linux..."
 else
     echo -e "${GREEN}[✓] Third-party OMEN driver found.${NC}"
 fi

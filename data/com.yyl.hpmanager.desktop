@@ -1,9 +1,9 @@
 [Desktop Entry]
-Name=HP Laptop Manager
+Name=OMEN Command Center for Linux
 Comment=HP dizüstü bilgisayar yönetim aracı
 Comment[en]=HP Laptop management tool
 Exec=/usr/bin/hp-manager
-Icon=/usr/share/hp-manager/images/hplogolight.png
+Icon=/usr/share/hp-manager/images/omenapplogo.png
 Terminal=false
 Type=Application
 Categories=System;Settings;HardwareSettings;

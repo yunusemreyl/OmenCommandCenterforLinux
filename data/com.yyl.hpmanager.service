@@ -1,5 +1,5 @@
 [Unit]
-Description=HP Laptop Manager Daemon
+Description=OMEN Command Center for Linux Daemon
 After=dbus.service
 Requires=dbus.service
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-HP Laptop Manager - Main Window
+OMEN Command Center for Linux - Main Window
 Sidebar navigation ile 5 sekme + ayarlar.
 """
 import sys, os, json, fcntl
@@ -28,10 +28,10 @@ PROJ_SRC = os.path.abspath(os.path.join(BASE_DIR, "..", ".."))
 # Check relative to installed location (1 level up -> /usr/share/hp-manager)
 PROJ_INSTALLED = os.path.abspath(os.path.join(BASE_DIR, ".."))
 
-if os.path.exists(os.path.join(PROJ_SRC, "images", "hplogodark.png")):
+if os.path.exists(os.path.join(PROJ_SRC, "images", "omenapplogo.png")):
     IMAGES_DIR = os.path.join(PROJ_SRC, "images")
     PROJECT_DIR = PROJ_SRC
-elif os.path.exists(os.path.join(PROJ_INSTALLED, "images", "hplogodark.png")):
+elif os.path.exists(os.path.join(PROJ_INSTALLED, "images", "omenapplogo.png")):
     IMAGES_DIR = os.path.join(PROJ_INSTALLED, "images")
     PROJECT_DIR = PROJ_INSTALLED
 else:
@@ -76,7 +76,7 @@ def get_model_branding():
 class HPManagerWindow(Gtk.ApplicationWindow):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.set_title("HP Laptop Manager")
+        self.set_title("OMEN Command Center for Linux")
         self.set_default_size(1100, 750)
 
         # Add local icons to theme
@@ -85,7 +85,7 @@ class HPManagerWindow(Gtk.ApplicationWindow):
         if IMAGES_DIR not in icon_theme.get_search_path():
             icon_theme.add_search_path(IMAGES_DIR)
         
-        self.set_icon_name("hplogolight")
+        self.set_icon_name("omenapplogo")
 
         self.app_theme = "dark"
         self.temp_unit = "C"
@@ -945,10 +945,7 @@ class HPManagerWindow(Gtk.ApplicationWindow):
         from gi.repository import Adw, GdkPixbuf
         import os
         
-        sm = Adw.StyleManager.get_default()
-        is_light = self.app_theme == "light" or (self.app_theme == "system" and not sm.get_dark())
-        
-        logo_filename = "hplogodark.png" if is_light else "hplogolight.png"
+        logo_filename = "omenapplogo.png"
         logo_path = os.path.join(IMAGES_DIR, logo_filename)
         
         if hasattr(self, 'logo_icon'):

@@ -79,7 +79,7 @@ class KeyboardPage(Gtk.Box):
         
         # Omen/Victus Key
         omen_row = self._make_shortcut_row(T("omen_key"), 
-                                        "Opens HP Laptop Manager.", 
+                                        "Opens OMEN Command Center for Linux.", 
                                         self.logo_path)
         keys_card.append(omen_row)
 

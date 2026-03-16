@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Centralized i18n module for HP Laptop Manager.
+Centralized i18n module for OMEN Command Center for Linux.
 This module is imported by all pages — never run as __main__,
 so there's only one copy of active_lang in memory.
 """
