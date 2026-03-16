@@ -26,6 +26,18 @@
 - 🌈 **Reversed RGB Layout Engine**: Built an automatic zone-mapping engine to correct the reversed left-to-right keyboard lighting behavior on specific OMEN variants.
 - ⚡ **Background Poller Efficiency**: Eliminated UI stuttering and high CPU spikes by shifting all `nvidia-smi` and ACPI sensor polling strictly to non-blocking background threads with backoff cooldowns.
 
+<<<<<<< HEAD
+=======
+**New in v1.1.5:**
+
+- 🚀 **OMEN 16 (2024) Support**: Added official support for 14th Gen OMEN models (Board ID 8C77).
+- 🌪️ **Kernel WMI Fixes**: Resolved the "Query 0x4c error 0x6" issue with advanced thermal fallback and updated custom drivers.
+- 📦 **Resource Monitoring**: Redesigned Dashboard gauges to use modern, boxed linear bars for **Disk, RAM, and Battery**.
+- 🎹 **Keyboard Shortcuts**: Renamed Keyboard page to "Shortcuts" (Kısayollar) with permanent hardware fixes for PrtSc and F1 keys via `udev`.
+- 🧹 **UI Streamlining**: Removed legacy 'Games' and 'Tools' pages to focus on core hardware control and optimize startup performance.
+- 🔧 **Diagnostics Upgrade**: Enhanced "Driver Status" and improved debug logging reliability for newer kernel versions.
+- 🖼️ **Branding Updates**: Integrated official OMEN/Victus logos and refined technical descriptions for a more premium experience.
+>>>>>>> 37e02ba4ab32ceef615ba8375b4c0c8715b87ad9
 
 ## ✨ Features
 
