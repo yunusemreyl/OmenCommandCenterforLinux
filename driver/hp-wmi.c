@@ -122,6 +122,13 @@ static const struct thermal_profile_params omen_v1_thermal_params = {
     .ec_tp_offset = HP_VICTUS_S_EC_THERMAL_PROFILE_OFFSET,
 };
 
+static const struct thermal_profile_params omen_v1_thermal_params_omen_ec = {
+    .performance = HP_OMEN_V1_THERMAL_PROFILE_PERFORMANCE,
+    .balanced = HP_OMEN_V1_THERMAL_PROFILE_DEFAULT,
+    .low_power = HP_OMEN_V1_THERMAL_PROFILE_DEFAULT,
+    .ec_tp_offset = HP_OMEN_EC_THERMAL_PROFILE_OFFSET,
+};
+
 /*
  * A generic pointer for the currently-active board's thermal profile
  * parameters.
@@ -195,7 +202,7 @@ static const struct dmi_system_id
         },
         {
             .matches = {DMI_MATCH(DMI_BOARD_NAME, "8C77")},
-            .driver_data = (void *)&omen_v1_thermal_params,
+            .driver_data = (void *)&omen_v1_thermal_params_omen_ec,
         },
         {
             .matches = {DMI_MATCH(DMI_BOARD_NAME, "8C78")},
@@ -550,7 +557,7 @@ static int hp_wmi_perform_query(int query, enum hp_wmi_command command,
   args->signature = 0x55434553;
   args->command = command;
   args->commandtype = query;
-  args->datasize = insize;
+  args->datasize = (insize == 0 && !zero_insize_support) ? 1 : insize;
   memcpy(args->data, buffer, flex_array_size(args, data, insize));
 
   ret = wmi_evaluate_method(HPWMI_BIOS_GUID, 0, mid, &input, &output);
