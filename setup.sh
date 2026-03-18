@@ -11,7 +11,7 @@ DATA_DIR="/usr/share/hp-manager"
 BIN_LINK="/usr/bin/hp-manager"
 UNINSTALLER_LINK="/usr/bin/hp-manager-uninstall"
 CONFIG_DIR="/etc/hp-manager"
-VERSION="1.1.5"
+VERSION="1.1.6"
 
 # Colors
 RED='\033[0;31m'
@@ -139,7 +139,7 @@ install_dependencies() {
 
     case $PM in
         pacman)
-            $INSTALL_CMD python python-gobject gtk4 libadwaita python-pydbus python-cairo
+            $INSTALL_CMD python python-gobject gtk4 libadwait python-pydbus python-cairo
             ;;
         apt)
             $INSTALL_CMD python3 python3-gi gir1.2-gtk-4.0 gir1.2-adw-1 python3-pydbus python3-cairo
@@ -171,7 +171,6 @@ install_dependencies() {
     msg pm_opt_3
     msg pm_opt_4
     msg pm_opt_5
-    # pm_choice uses printf '%s' (no newline) so read appears on same line
     msg pm_choice
     read -r choice
 
@@ -211,9 +210,14 @@ manage_driver() {
         info "Running driver ${action}..."
         if ! (cd driver && chmod +x setup.sh && ./setup.sh "$action"); then
             warn "$(msg driver_failed "$action")"
-            # Not fatal for uninstall; fatal for install since RGB won't work
             if [ "$action" = "install" ]; then
                 warn "Continuing installation — RGB control will be unavailable until driver is fixed."
+            fi
+        else
+            if [ "$action" = "install" ]; then
+                info "Loading modules via modprobe..."
+                modprobe hp-wmi 2>/dev/null || true
+                modprobe hp-rgb-lighting 2>/dev/null || true
             fi
         fi
     else
