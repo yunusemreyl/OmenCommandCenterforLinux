@@ -807,14 +807,14 @@ static int hp_wmi_fan_speed_set(struct hp_wmi_hwmon_priv *priv, u8 speed) {
   ret = hp_wmi_get_fan_count_userdefine_trigger();
   if (ret < 0)
     return ret;
+
   /* Max fans need to be explicitly disabled */
   ret = hp_wmi_fan_speed_max_set(0);
   if (ret < 0)
     return ret;
-  ret = hp_wmi_perform_query(HPWMI_VICTUS_S_FAN_SPEED_SET_QUERY, HPWMI_GM,
-                             &fan_speed, sizeof(fan_speed), 0);
 
-  return ret;
+  return hp_wmi_perform_query(HPWMI_VICTUS_S_FAN_SPEED_SET_QUERY, HPWMI_GM,
+                             &fan_speed, sizeof(fan_speed), 0);
 }
 
 static int hp_wmi_fan_speed_reset(struct hp_wmi_hwmon_priv *priv) {
@@ -2282,11 +2282,11 @@ static int hp_wmi_apply_fan_settings(struct hp_wmi_hwmon_priv *priv) {
   case PWM_MODE_MANUAL:
     if (!is_victus_s_thermal_profile())
       return -EOPNOTSUPP;
+    schedule_delayed_work(&priv->keep_alive_dwork,
+                          secs_to_jiffies(KEEP_ALIVE_DELAY_SECS));
     ret = hp_wmi_fan_speed_set(priv, pwm_to_rpm(priv->pwm, priv));
     if (ret < 0)
       return ret;
-    schedule_delayed_work(&priv->keep_alive_dwork,
-                          secs_to_jiffies(KEEP_ALIVE_DELAY_SECS));
     return 0;
   case PWM_MODE_AUTO:
     if (is_victus_s_thermal_profile()) {
