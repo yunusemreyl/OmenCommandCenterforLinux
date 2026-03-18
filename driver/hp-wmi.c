@@ -467,6 +467,8 @@ enum pwm_modes {
 };
 
 struct hp_wmi_hwmon_priv {
+  u16 target_rpms[2];
+  u16 max_rpms[2];
   u8 min_rpm;
   u8 max_rpm;
   u8 gpu_delta;
@@ -786,23 +788,15 @@ static int hp_wmi_fan_speed_max_set(int enabled) {
   return enabled;
 }
 
-static int hp_wmi_fan_speed_set(struct hp_wmi_hwmon_priv *priv, u8 speed) {
+static int hp_wmi_fan_speed_set(struct hp_wmi_hwmon_priv *priv, u16 cpu_rpm, u16 gpu_rpm) {
   u8 fan_speed[2];
-  int gpu_speed, ret;
-
-  fan_speed[CPU_FAN] = speed;
-  fan_speed[GPU_FAN] = speed;
+  int ret;
 
   /*
-   * GPU fan speed is always a little higher than CPU fan speed, we fetch
-   * this delta value from the fan table during hwmon init.
-   * Exception: Speed is set to HP_FAN_SPEED_AUTOMATIC, to revert to
-   * automatic mode.
+   * Bios expects the value in hundreds of RPM (RPM / 100).
    */
-  if (speed != HP_FAN_SPEED_AUTOMATIC) {
-    gpu_speed = speed + priv->gpu_delta;
-    fan_speed[GPU_FAN] = clamp_val(gpu_speed, 0, U8_MAX);
-  }
+  fan_speed[CPU_FAN] = (u8)(cpu_rpm / 100);
+  fan_speed[GPU_FAN] = (u8)(gpu_rpm / 100);
 
   ret = hp_wmi_get_fan_count_userdefine_trigger();
   if (ret < 0)
@@ -818,7 +812,7 @@ static int hp_wmi_fan_speed_set(struct hp_wmi_hwmon_priv *priv, u8 speed) {
 }
 
 static int hp_wmi_fan_speed_reset(struct hp_wmi_hwmon_priv *priv) {
-  return hp_wmi_fan_speed_set(priv, HP_FAN_SPEED_AUTOMATIC);
+  return hp_wmi_fan_speed_set(priv, 0, 0);
 }
 
 static int hp_wmi_fan_speed_max_reset(struct hp_wmi_hwmon_priv *priv) {
@@ -2278,13 +2272,15 @@ static int hp_wmi_apply_fan_settings(struct hp_wmi_hwmon_priv *priv) {
       return ret;
     schedule_delayed_work(&priv->keep_alive_dwork,
                           secs_to_jiffies(KEEP_ALIVE_DELAY_SECS));
-    return 0;
+    /* Apply max RPMs to both fans */
+    return hp_wmi_fan_speed_set(priv, priv->max_rpms[0], priv->max_rpms[1]);
   case PWM_MODE_MANUAL:
     if (!is_victus_s_thermal_profile())
       return -EOPNOTSUPP;
     schedule_delayed_work(&priv->keep_alive_dwork,
                           secs_to_jiffies(KEEP_ALIVE_DELAY_SECS));
-    ret = hp_wmi_fan_speed_set(priv, pwm_to_rpm(priv->pwm, priv));
+    /* Apply target RPMs to both fans */
+    ret = hp_wmi_fan_speed_set(priv, priv->target_rpms[0], priv->target_rpms[1]);
     if (ret < 0)
       return ret;
     return 0;
@@ -2316,12 +2312,18 @@ static umode_t hp_wmi_hwmon_is_visible(const void *data,
       return 0;
     return 0644;
   case hwmon_fan:
-    if (is_victus_s_thermal_profile()) {
-      if (hp_wmi_get_fan_speed_victus_s(channel) >= 0)
-        return 0444;
-    } else {
-      if (hp_wmi_get_fan_speed(channel) >= 0)
-        return 0444;
+    if (attr == hwmon_fan_input) {
+      if (is_victus_s_thermal_profile()) {
+        if (hp_wmi_get_fan_speed_victus_s(channel) >= 0)
+          return 0444;
+      } else {
+        if (hp_wmi_get_fan_speed(channel) >= 0)
+          return 0444;
+      }
+    } else if (attr == hwmon_fan_max) {
+      return 0444;
+    } else if (attr == hwmon_fan_target) {
+      return 0644;
     }
     break;
   default:
@@ -2339,13 +2341,19 @@ static int hp_wmi_hwmon_read(struct device *dev, enum hwmon_sensor_types type,
   priv = dev_get_drvdata(dev);
   switch (type) {
   case hwmon_fan:
-    if (is_victus_s_thermal_profile())
-      ret = hp_wmi_get_fan_speed_victus_s(channel);
-    else
-      ret = hp_wmi_get_fan_speed(channel);
-    if (ret < 0)
-      return ret;
-    *val = ret;
+    if (attr == hwmon_fan_input) {
+      if (is_victus_s_thermal_profile())
+        ret = hp_wmi_get_fan_speed_victus_s(channel);
+      else
+        ret = hp_wmi_get_fan_speed(channel);
+      if (ret < 0)
+        return ret;
+      *val = ret;
+    } else if (attr == hwmon_fan_max) {
+      *val = priv->max_rpms[channel];
+    } else if (attr == hwmon_fan_target) {
+      *val = priv->target_rpms[channel];
+    }
     return 0;
   case hwmon_pwm:
     if (attr == hwmon_pwm_input) {
@@ -2391,6 +2399,8 @@ static int hp_wmi_hwmon_write(struct device *dev, enum hwmon_sensor_types type,
       /* ensure PWM input is within valid fan speeds */
       rpm = pwm_to_rpm(val, priv);
       rpm = clamp_val(rpm, priv->min_rpm, priv->max_rpm);
+      priv->target_rpms[0] = (u16)rpm * 100;
+      priv->target_rpms[1] = (u16)(rpm + priv->gpu_delta) * 100;
       priv->pwm = rpm_to_pwm(rpm, priv);
       return hp_wmi_apply_fan_settings(priv);
     }
@@ -2405,10 +2415,13 @@ static int hp_wmi_hwmon_write(struct device *dev, enum hwmon_sensor_types type,
        * When switching to manual mode, set fan speed to
        * current RPM values to ensure a smooth transition.
        */
-      rpm = hp_wmi_get_fan_speed_victus_s(channel);
-      if (rpm < 0)
-        return rpm;
-      priv->pwm = rpm_to_pwm(rpm / 100, priv);
+      rpm = hp_wmi_get_fan_speed_victus_s(0);
+      if (rpm >= 0)
+        priv->target_rpms[0] = rpm;
+      rpm = hp_wmi_get_fan_speed_victus_s(1);
+      if (rpm >= 0)
+        priv->target_rpms[1] = rpm;
+
       priv->mode = PWM_MODE_MANUAL;
       return hp_wmi_apply_fan_settings(priv);
     case PWM_MODE_AUTO:
@@ -2417,13 +2430,25 @@ static int hp_wmi_hwmon_write(struct device *dev, enum hwmon_sensor_types type,
     default:
       return -EINVAL;
     }
+  case hwmon_fan:
+    if (attr != hwmon_fan_target)
+      return -EOPNOTSUPP;
+    if (channel < 0 || channel > 1)
+      return -EINVAL;
+    if (val < 0 || val > priv->max_rpms[channel])
+      return -EINVAL;
+
+    priv->target_rpms[channel] = val;
+    priv->mode = PWM_MODE_MANUAL;
+    return hp_wmi_apply_fan_settings(priv);
   default:
     return -EOPNOTSUPP;
   }
 }
 
 static const struct hwmon_channel_info *const info[] = {
-    HWMON_CHANNEL_INFO(fan, HWMON_F_INPUT, HWMON_F_INPUT),
+    HWMON_CHANNEL_INFO(fan, HWMON_F_INPUT | HWMON_F_TARGET | HWMON_F_MAX,
+                       HWMON_F_INPUT | HWMON_F_TARGET | HWMON_F_MAX),
     HWMON_CHANNEL_INFO(pwm, HWMON_PWM_ENABLE | HWMON_PWM_INPUT), NULL};
 
 static const struct hwmon_ops ops = {
@@ -2482,6 +2507,12 @@ static int hp_wmi_setup_fan_settings(struct hp_wmi_hwmon_priv *priv) {
   priv->min_rpm = min_rpm;
   priv->max_rpm = max_rpm;
   priv->gpu_delta = gpu_delta;
+
+  priv->max_rpms[0] = (u16)max_rpm * 100;
+  priv->max_rpms[1] = (u16)fan_table->entries[fan_table->header.num_entries - 1].gpu_rpm * 100;
+
+  priv->target_rpms[0] = 0;
+  priv->target_rpms[1] = 0;
 
   return 0;
 }
