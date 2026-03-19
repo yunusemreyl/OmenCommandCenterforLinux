@@ -38,65 +38,65 @@ msg() {
     shift || true
     if [ "$LANG_CODE" = "tr" ]; then
         case $key in
-            "root_check")         printf '%s\n' "Bu scripti root olarak çalıştırın: sudo $0" ;;
-            "pm_not_found")       printf '%s\n' "Desteklenen paket yöneticisi bulunamadı (pacman/apt/dnf/zypper)" ;;
-            "pm_name")            printf '%s\n' "Paket yöneticisi: ${1:-}" ;;
-            "installing_deps")    printf '%s\n' "Bağımlılıklar yükleniyor..." ;;
-            "deps_installed")     printf '%s\n' "Bağımlılıklar yüklendi" ;;
-            "installing_app")     printf '%s\n' "Uygulama kuruluyor..." ;;
-            "daemon_installed")   printf '%s\n' "Daemon kuruldu: ${1:-}" ;;
-            "gui_installed")      printf '%s\n' "GUI kuruldu: ${1:-}" ;;
-            "images_copied")      printf '%s\n' "Resimler kopyalandı" ;;
-            "success")            printf '%s\n' "${APP_NAME} başarıyla kuruldu!" ;;
-            "uninstalling")       printf '%s\n' "Uygulama kaldırılıyor..." ;;
-            "uninstalled")        printf '%s\n' "Uygulama kaldırıldı" ;;
-            "updating")           printf '%s\n' "Uygulama güncelleniyor..." ;;
-            "updated")            printf '%s\n' "Güncelleme tamamlandı!" ;;
-            "usage")              printf '%s\n' "Kullanım: $0 [install|uninstall|update]" ;;
+            "root_check")           printf '%s\n' "Bu scripti root olarak çalıştırın: sudo $0" ;;
+            "pm_not_found")         printf '%s\n' "Desteklenen paket yöneticisi bulunamadı (pacman/apt/dnf/zypper)" ;;
+            "pm_name")              printf '%s\n' "Paket yöneticisi: ${1:-}" ;;
+            "installing_deps")      printf '%s\n' "Bağımlılıklar yükleniyor..." ;;
+            "deps_installed")       printf '%s\n' "Bağımlılıklar yüklendi" ;;
+            "installing_app")       printf '%s\n' "Uygulama kuruluyor..." ;;
+            "daemon_installed")     printf '%s\n' "Daemon kuruldu: ${1:-}" ;;
+            "gui_installed")        printf '%s\n' "GUI kuruldu: ${1:-}" ;;
+            "images_copied")        printf '%s\n' "Resimler kopyalandı" ;;
+            "success")              printf '%s\n' "${APP_NAME} başarıyla kuruldu!" ;;
+            "uninstalling")         printf '%s\n' "Uygulama kaldırılıyor..." ;;
+            "uninstalled")          printf '%s\n' "Uygulama kaldırıldı" ;;
+            "updating")             printf '%s\n' "Uygulama güncelleniyor..." ;;
+            "updated")              printf '%s\n' "Güncelleme tamamlandı!" ;;
+            "usage")                printf '%s\n' "Kullanım: $0 [install|uninstall|update]" ;;
             "select_power_manager") printf '\n%s\n' "Hangi güç yöneticisini kullanmak istersiniz?" ;;
-            "pm_detected")        printf '%b\n' "${CYAN}[i]${NC} Sistemde tespit edildi: ${1:-}" ;;
-            "pm_opt_1")           printf '%s\n' "1) power-profiles-daemon (Varsayılan)" ;;
-            "pm_opt_2")           printf '%s\n' "2) tuned-ppd (Fedora kullanıyorsanız önerilir)" ;;
-            "pm_opt_3")           printf '%s\n' "3) TLP (https://github.com/linrunner/TLP)" ;;
-            "pm_opt_4")           printf '%s\n' "4) auto-cpufreq (https://github.com/AdnanHodzic/auto-cpufreq)" ;;
-            "pm_opt_5")           printf '%s\n' "5) Atla (Herhangi bir güç yöneticisi kurma)" ;;
-            "pm_choice")          printf '%s' "Seçiminiz (1-5): " ;;
-            "installing_pm")      printf '%s\n' "${1:-} kuruluyor..." ;;
-            "pm_not_in_repo")     printf '%s\n' "Uyarı: ${1:-} paket yöneticinizde bulunamadı. Lütfen manuel kurun." ;;
-            "skipping_pm")        printf '%s\n' "Güç yöneticisi kurulumu atlanıyor." ;;
-            "driver_failed")      printf '%s\n' "Uyarı: Sürücü ${1:-} işlemi başarısız oldu. RGB kontrolü çalışmayabilir." ;;
-            *)                    printf '%s\n' "$key" ;;
+            "pm_detected")          printf '%b\n' "${CYAN}[i]${NC} Sistemde tespit edildi: ${1:-}" ;;
+            "pm_opt_1")             printf '%s\n' "1) power-profiles-daemon (Varsayılan)" ;;
+            "pm_opt_2")             printf '%s\n' "2) tuned-ppd (Fedora kullanıyorsanız önerilir)" ;;
+            "pm_opt_3")             printf '%s\n' "3) TLP (https://github.com/linrunner/TLP)" ;;
+            "pm_opt_4")             printf '%s\n' "4) auto-cpufreq (https://github.com/AdnanHodzic/auto-cpufreq)" ;;
+            "pm_opt_5")             printf '%s\n' "5) Atla (Herhangi bir güç yöneticisi kurma)" ;;
+            "pm_choice")            printf '%s' "Seçiminiz (1-5): " ;;
+            "installing_pm")        printf '%s\n' "${1:-} kuruluyor..." ;;
+            "pm_not_in_repo")       printf '%s\n' "Uyarı: ${1:-} paket yöneticinizde bulunamadı. Lütfen manuel kurun." ;;
+            "skipping_pm")          printf '%s\n' "Güç yöneticisi kurulumu atlanıyor." ;;
+            "driver_failed")        printf '%s\n' "Uyarı: Sürücü ${1:-} işlemi başarısız oldu. RGB kontrolü çalışmayabilir." ;;
+            *)                      printf '%s\n' "$key" ;;
         esac
     else
         case $key in
-            "root_check")         printf '%s\n' "Run this script as root: sudo $0" ;;
-            "pm_not_found")       printf '%s\n' "Supported package manager not found (pacman/apt/dnf/zypper)" ;;
-            "pm_name")            printf '%s\n' "Package manager: ${1:-}" ;;
-            "installing_deps")    printf '%s\n' "Installing dependencies..." ;;
-            "deps_installed")     printf '%s\n' "Dependencies installed" ;;
-            "installing_app")     printf '%s\n' "Installing application..." ;;
-            "daemon_installed")   printf '%s\n' "Daemon installed: ${1:-}" ;;
-            "gui_installed")      printf '%s\n' "GUI installed: ${1:-}" ;;
-            "images_copied")      printf '%s\n' "Images copied" ;;
-            "success")            printf '%s\n' "${APP_NAME} successfully installed!" ;;
-            "uninstalling")       printf '%s\n' "Uninstalling application..." ;;
-            "uninstalled")        printf '%s\n' "Application uninstalled" ;;
-            "updating")           printf '%s\n' "Updating application..." ;;
-            "updated")            printf '%s\n' "Update complete!" ;;
-            "usage")              printf '%s\n' "Usage: $0 [install|uninstall|update]" ;;
+            "root_check")           printf '%s\n' "Run this script as root: sudo $0" ;;
+            "pm_not_found")         printf '%s\n' "Supported package manager not found (pacman/apt/dnf/zypper)" ;;
+            "pm_name")              printf '%s\n' "Package manager: ${1:-}" ;;
+            "installing_deps")      printf '%s\n' "Installing dependencies..." ;;
+            "deps_installed")       printf '%s\n' "Dependencies installed" ;;
+            "installing_app")       printf '%s\n' "Installing application..." ;;
+            "daemon_installed")     printf '%s\n' "Daemon installed: ${1:-}" ;;
+            "gui_installed")        printf '%s\n' "GUI installed: ${1:-}" ;;
+            "images_copied")        printf '%s\n' "Images copied" ;;
+            "success")              printf '%s\n' "${APP_NAME} successfully installed!" ;;
+            "uninstalling")         printf '%s\n' "Uninstalling application..." ;;
+            "uninstalled")          printf '%s\n' "Application uninstalled" ;;
+            "updating")             printf '%s\n' "Updating application..." ;;
+            "updated")              printf '%s\n' "Update complete!" ;;
+            "usage")                printf '%s\n' "Usage: $0 [install|uninstall|update]" ;;
             "select_power_manager") printf '\n%s\n' "Which power manager would you like to use?" ;;
-            "pm_detected")        printf '%b\n' "${CYAN}[i]${NC} Detected on system: ${1:-}" ;;
-            "pm_opt_1")           printf '%s\n' "1) power-profiles-daemon (Default)" ;;
-            "pm_opt_2")           printf '%s\n' "2) tuned-ppd (Recommended for Fedora users)" ;;
-            "pm_opt_3")           printf '%s\n' "3) TLP (https://github.com/linrunner/TLP)" ;;
-            "pm_opt_4")           printf '%s\n' "4) auto-cpufreq (https://github.com/AdnanHodzic/auto-cpufreq)" ;;
-            "pm_opt_5")           printf '%s\n' "5) Skip (Don't install any power manager)" ;;
-            "pm_choice")          printf '%s' "Your choice (1-5): " ;;
-            "installing_pm")      printf '%s\n' "Installing ${1:-}..." ;;
-            "pm_not_in_repo")     printf '%s\n' "Warning: ${1:-} was not found in your package manager. Please install it manually." ;;
-            "skipping_pm")        printf '%s\n' "Skipping power manager installation." ;;
-            "driver_failed")      printf '%s\n' "Warning: Driver ${1:-} failed. RGB control may not work." ;;
-            *)                    printf '%s\n' "$key" ;;
+            "pm_detected")          printf '%b\n' "${CYAN}[i]${NC} Detected on system: ${1:-}" ;;
+            "pm_opt_1")             printf '%s\n' "1) power-profiles-daemon (Default)" ;;
+            "pm_opt_2")             printf '%s\n' "2) tuned-ppd (Recommended for Fedora users)" ;;
+            "pm_opt_3")             printf '%s\n' "3) TLP (https://github.com/linrunner/TLP)" ;;
+            "pm_opt_4")             printf '%s\n' "4) auto-cpufreq (https://github.com/AdnanHodzic/auto-cpufreq)" ;;
+            "pm_opt_5")             printf '%s\n' "5) Skip (Don't install any power manager)" ;;
+            "pm_choice")            printf '%s' "Your choice (1-5): " ;;
+            "installing_pm")        printf '%s\n' "Installing ${1:-}..." ;;
+            "pm_not_in_repo")       printf '%s\n' "Warning: ${1:-} was not found in your package manager. Please install it manually." ;;
+            "skipping_pm")          printf '%s\n' "Skipping power manager installation." ;;
+            "driver_failed")        printf '%s\n' "Warning: Driver ${1:-} failed. RGB control may not work." ;;
+            *)                      printf '%s\n' "$key" ;;
         esac
     fi
 }
@@ -115,6 +115,7 @@ detect_pm() {
         info "Detected distro: $_DISTRO_NAME"
     fi
 
+    # FIX: dnf check must come before pacman because Fedora/Nobara may have both
     if [ -f /etc/fedora-release ] || [ -f /etc/nobara-release ] || command -v dnf &>/dev/null; then
         PM="dnf"
         INSTALL_CMD="dnf install -y"
@@ -215,9 +216,35 @@ manage_driver() {
             fi
         else
             if [ "$action" = "install" ]; then
+                info "Applying kernel module configuration..."
+
+                # FIX: removed mkinitcpio -P — not needed after DKMS install,
+                # it's slow and modules-load.d handles boot-time loading already.
+
+                # Unload stock hp_wmi before loading our DKMS override.
+                # Use modprobe -r (not rmmod) so dependencies are handled correctly.
+                info "Unloading stock hp_wmi module..."
+                modprobe -r hp_wmi 2>/dev/null || true
+
+                # FIX: use modprobe (searches installed module paths) instead of
+                # insmod (requires an explicit file path). DKMS installs to
+                # /usr/lib/modules/.../updates/dkms/ which insmod can't find
+                # without a full path.
                 info "Loading modules via modprobe..."
-                modprobe hp-wmi 2>/dev/null || true
-                modprobe hp-rgb-lighting 2>/dev/null || true
+                if modprobe hp-wmi; then
+                    log "hp-wmi loaded successfully"
+                else
+                    warn "hp-wmi failed to load — check: dmesg | tail -20"
+                fi
+
+                if modprobe hp-rgb-lighting; then
+                    log "hp-rgb-lighting loaded successfully"
+                else
+                    warn "hp-rgb-lighting failed to load"
+                fi
+
+                info "Active module path (debug):"
+                modinfo hp_wmi 2>/dev/null | grep filename || warn "hp_wmi not found by modinfo"
             fi
         fi
     else
@@ -277,8 +304,9 @@ LAUNCHER
     cp data/com.yyl.hpmanager.policy  /usr/share/polkit-1/actions/
     cp data/com.yyl.hpmanager.desktop /usr/share/applications/
 
-    # Ensure RGB driver loads on boot
+    # Ensure drivers load on boot via modules-load.d (no blacklist needed)
     echo "hp-rgb-lighting" > /etc/modules-load.d/hp-rgb-lighting.conf
+    echo "hp-wmi"          > /etc/modules-load.d/hp-wmi.conf
 
     # Uninstaller — self-contained, does not rely on original script path
     cat > "$UNINSTALLER_LINK" << 'UNINSTALLER'
@@ -314,6 +342,7 @@ rm -f /usr/share/applications/com.yyl.hpmanager.desktop
 rm -f /usr/share/icons/hicolor/48x48/apps/omenapplogo.png
 rm -f /etc/udev/rules.d/90-hp-omen-key.rules
 rm -f /etc/modules-load.d/hp-rgb-lighting.conf
+rm -f /etc/modules-load.d/hp-wmi.conf
 
 systemctl daemon-reload
 echo "[✓] OMEN Command Center for Linux uninstalled."
@@ -356,6 +385,7 @@ do_uninstall() {
     rm -f /usr/share/icons/hicolor/48x48/apps/omenapplogo.png
     rm -f /etc/udev/rules.d/90-hp-omen-key.rules
     rm -f /etc/modules-load.d/hp-rgb-lighting.conf
+    rm -f /etc/modules-load.d/hp-wmi.conf
 
     systemctl daemon-reload
     log "$(msg uninstalled)"
@@ -363,7 +393,7 @@ do_uninstall() {
 
 # --- UPDATE APP ---
 do_update() {
-    check_root   # FIX: was missing
+    check_root
     info "$(msg updating)"
 
     if [ -d ".git" ]; then
