@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """OMEN Command Center for Linux - D-Bus Daemon Service
-Root olarak çalışır, donanım erişimi sağlar.
+Runs as root to provide hardware access.
 """
 import sys, os, time, threading, logging, json, copy, colorsys, math, shutil, subprocess, re, typing, glob, platform
 from gi.repository import GLib
@@ -10,7 +10,7 @@ from pydbus import SystemBus
 DRIVER_PATH_CUSTOM = "/sys/devices/platform/hp-rgb-lighting"
 CONFIG_FILE = "/etc/hp-manager/state.json"
 
-# --- LOGLAMA ---
+# --- LOGGING ---
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("hp-manager")
 
@@ -998,7 +998,7 @@ class HPManagerService(object):
 # ============================================================
 def main():
     if os.geteuid() != 0:
-        print("Root yetkisi gerekli (sudo).")
+        print("Root privileges required (sudo).")
         sys.exit(1)
 
     load_state()
