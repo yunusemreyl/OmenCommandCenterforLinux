@@ -17,9 +17,12 @@ MODNAME="hp-rgb-lighting"
 MODVER=$(grep -oP 'PACKAGE_VERSION="\K[^"]+' dkms.conf 2>/dev/null || echo "1.1.1")
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# MOK_DIR — initialised here so it is always defined (avoids unbound variable
+# errors in the MOK_PENDING check when Secure Boot is disabled)
+MOK_DIR="/var/lib/hp-manager/mok"
+
 # ── Kernel version detection ──────────────────────────────────────────────────
 # Kernel 7.0+ has Omen/Victus fan control in the stock hp-wmi module.
-# Robust version comparison:
 KVER_MAJOR=$(uname -r | cut -d. -f1)
 KVER_MINOR=$(uname -r | cut -d. -f2)
 STOCK_FAN_SUPPORT=false
@@ -76,17 +79,17 @@ install_deps() {
             ;;
         arch|manjaro|endeavouros|garuda|cachyos)
             info "Installing dependencies (pacman)..."
-            # Arch kernel header detection
             local HEADERS_PKG=""
-            local RUNNING_KVER=$(uname -r)
-            
+            local RUNNING_KVER
+            RUNNING_KVER=$(uname -r)
+
             if [[ $RUNNING_KVER == *"-cachyos"* ]]; then
-                # CachyOS has multiple nested kernel names (bore, deckify, etc.)
-                # Try to find headers matching the exact kernel suffix if possible
-                local SUFFIX=$(echo "$RUNNING_KVER" | sed 's/^[0-9.]*-[0-9]*-\(.*\)/\1/')
-                if [[ -n "$SUFFIX" ]] && pacman -Si "linux-$SUFFIX-headers" &>/dev/null; then
+                # CachyOS can have multiple kernel flavours (bore, deckify, …)
+                local SUFFIX
+                SUFFIX=$(echo "$RUNNING_KVER" | sed 's/^[0-9.]*-[0-9]*-\(.*\)/\1/')
+                if [[ -n "$SUFFIX" ]] && pacman -Si "linux-$SUFFIX-headers" &>/dev/null 2>&1; then
                     HEADERS_PKG="linux-$SUFFIX-headers"
-                elif pacman -Si linux-cachyos-headers &>/dev/null; then
+                elif pacman -Si linux-cachyos-headers &>/dev/null 2>&1; then
                     HEADERS_PKG="linux-cachyos-headers"
                 else
                     HEADERS_PKG="linux-headers"
@@ -102,11 +105,12 @@ install_deps() {
             else
                 HEADERS_PKG="linux-headers"
             fi
-            
+
             info "Attempting to install: dkms $HEADERS_PKG base-devel"
             if ! pacman -S --needed --noconfirm dkms "$HEADERS_PKG" base-devel; then
                 warn "Could not install $HEADERS_PKG. Trying generic linux-headers..."
-                pacman -S --needed --noconfirm dkms linux-headers base-devel || warn "Header installation failed. DKMS might not work without headers."
+                pacman -S --needed --noconfirm dkms linux-headers base-devel \
+                    || warn "Header installation failed. DKMS might not work without headers."
             fi
             ;;
         opensuse*|suse*)
@@ -122,7 +126,7 @@ install_deps() {
             command -v dkms &>/dev/null || error "dkms not found. Install it with: emerge sys-kernel/dkms"
             ;;
         *)
-            # Try ID_LIKE as fallback
+            # Fallback: try ID_LIKE
             case "$DISTRO_LIKE" in
                 *debian*|*ubuntu*)
                     info "Debian-like distro detected, using apt..."
@@ -151,6 +155,20 @@ install_deps() {
     esac
 }
 
+# ── Helper: find module path in both /lib and /usr/lib ───────────────────────
+# Some distros (Arch, CachyOS, Gentoo, newer Debian/Ubuntu) store kernel
+# modules under /usr/lib/modules rather than /lib/modules.  Both paths are
+# searched so backups and restores work on all distros.
+
+find_module_paths() {
+    local pattern="$1"
+    local kver="${2:-$(uname -r)}"
+    find \
+        "/lib/modules/$kver" \
+        "/usr/lib/modules/$kver" \
+        -name "$pattern" 2>/dev/null | sort -u
+}
+
 # ── Install ───────────────────────────────────────────────────────────────────
 
 do_install() {
@@ -159,7 +177,7 @@ do_install() {
     detect_distro
     install_deps
 
-    # Detect if the running kernel was compiled with Clang and automatically set LLVM=1
+    # Detect Clang-built kernel and set LLVM=1 automatically
     if grep -iq "clang" /proc/version; then
         info "Kernel built with Clang/LLVM detected. Automatically setting LLVM=1 for build..."
         export LLVM=1
@@ -167,7 +185,7 @@ do_install() {
 
     cd "$SCRIPT_DIR"
 
-    # Remove old DKMS entry if exists
+    # Remove old DKMS entry if present
     if dkms status "$MODNAME/$MODVER" 2>/dev/null | grep -q "$MODNAME"; then
         warn "Removing existing DKMS entry ($MODNAME/$MODVER)..."
         dkms remove -m "$MODNAME" -v "$MODVER" --all 2>/dev/null || true
@@ -175,16 +193,16 @@ do_install() {
     rm -rf "/usr/src/${MODNAME}-${MODVER}"
     mkdir -p "/usr/src/${MODNAME}-${MODVER}"
 
-    # Ensure /usr/src directory exists and copy source files
-    # Prepare source for DKMS
-    cp "$SCRIPT_DIR/dkms.conf" "$SCRIPT_DIR/Makefile" "$SCRIPT_DIR"/*.c "/usr/src/${MODNAME}-${MODVER}/"
+    # Copy source files into the DKMS tree
+    cp "$SCRIPT_DIR/dkms.conf" "$SCRIPT_DIR/Makefile" "$SCRIPT_DIR"/*.c \
+       "/usr/src/${MODNAME}-${MODVER}/"
     cp "$SCRIPT_DIR"/*.h "/usr/src/${MODNAME}-${MODVER}/" 2>/dev/null || true
 
     if $STOCK_FAN_SUPPORT; then
         info "Kernel $(uname -r) detected (>= 7.0) — stock hp-wmi already has Omen fan control."
         info "Only building hp-rgb-lighting (RGB keyboard control)..."
 
-        # Create an RGB-only DKMS config in /usr/src
+        # RGB-only DKMS config
         cat > "/usr/src/${MODNAME}-${MODVER}/dkms.conf" <<DKMSRGB
 PACKAGE_NAME="hp-rgb-lighting"
 PACKAGE_VERSION="$MODVER"
@@ -196,10 +214,11 @@ AUTOINSTALL="yes"
 DKMSRGB
     else
         info "Kernel $(uname -r) detected (< 7.0) — installing both hp-wmi and hp-rgb-lighting..."
-        
+
         info "Checking for stock hp-wmi driver to backup and disable..."
+        # FIX: modinfo -n resolves symlinks and works on both /lib and /usr/lib
         ORIG_WMI=$(modinfo -n hp-wmi 2>/dev/null || true)
-        if [[ -n "$ORIG_WMI" ]] && [[ -f "$ORIG_WMI" ]] && [[ ! "$ORIG_WMI" == *"updates"* ]]; then
+        if [[ -n "$ORIG_WMI" ]] && [[ -f "$ORIG_WMI" ]] && [[ ! "$ORIG_WMI" == *"updates"* ]] && [[ ! "$ORIG_WMI" == *"dkms"* ]]; then
             info "Backing up stock driver: $ORIG_WMI"
             mv "$ORIG_WMI" "${ORIG_WMI}.backup"
         fi
@@ -210,10 +229,10 @@ DKMSRGB
     if ! dkms status "$MODNAME/$MODVER" 2>/dev/null | grep -q "added"; then
         dkms add -m "$MODNAME" -v "$MODVER" || true
     fi
-    dkms build -m "$MODNAME" -v "$MODVER" || error "DKMS build failed. Check logs."
-    dkms install -m "$MODNAME" -v "$MODVER" --force || error "DKMS install failed."
+    dkms build   -m "$MODNAME" -v "$MODVER"          || error "DKMS build failed. Check logs."
+    dkms install -m "$MODNAME" -v "$MODVER" --force   || error "DKMS install failed."
 
-    # ── Secure Boot check ───────────────────────────────────────────────────────
+    # ── Secure Boot handling ─────────────────────────────────────────────────
     SECUREBOOT=false
     if command -v mokutil &>/dev/null; then
         if mokutil --sb-state 2>/dev/null | grep -qi "SecureBoot enabled"; then
@@ -222,39 +241,48 @@ DKMSRGB
     fi
 
     if $SECUREBOOT; then
-        # 1. Generate MOK Key (if it doesn't exist)
-        MOK_DIR="/var/lib/hp-manager/mok"
         mkdir -p "$MOK_DIR"
+
+        # Generate MOK key if missing
         if [ ! -f "$MOK_DIR/MOK.priv" ] || [ ! -f "$MOK_DIR/MOK.der" ]; then
             info "Generating MOK key for Secure Boot..."
-            openssl req -new -x509 -newkey rsa:2048 -keyout "$MOK_DIR/MOK.priv" -outform DER -out "$MOK_DIR/MOK.der" -days 36500 -subj "/CN=hp-manager-mok/" -nodes 2>/dev/null
+            openssl req -new -x509 -newkey rsa:2048 \
+                -keyout "$MOK_DIR/MOK.priv" \
+                -outform DER -out "$MOK_DIR/MOK.der" \
+                -days 36500 -subj "/CN=hp-manager-mok/" -nodes 2>/dev/null
         fi
 
-        # 2. Sign installed modules
+        # Sign installed modules
         KVER=$(uname -r)
         info "Signing custom modules for Secure Boot..."
-        SIGN_SCRIPT=$(find /usr/src/linux-headers-$KVER/scripts /usr/src/kernels/$KVER/scripts /lib/modules/$KVER/build/scripts -name "sign-file" -type f 2>/dev/null | head -n 1)
-        
+        SIGN_SCRIPT=$(find \
+            "/usr/src/linux-headers-$KVER/scripts" \
+            "/usr/src/kernels/$KVER/scripts" \
+            "/lib/modules/$KVER/build/scripts" \
+            "/usr/lib/modules/$KVER/build/scripts" \
+            -name "sign-file" -type f 2>/dev/null | head -n 1)
+
         if [ -n "$SIGN_SCRIPT" ]; then
             for MOD_NAME in "hp-rgb-lighting.ko" "hp-wmi.ko"; do
                 if [ "$MOD_NAME" = "hp-wmi.ko" ] && $STOCK_FAN_SUPPORT; then
-                    continue # We use stock hp-wmi, no need to sign a custom one
+                    continue
                 fi
-                # Find the module file installed by us (not the backups)
-                MOD_PATH=$(find /lib/modules/$KVER -name "$MOD_NAME" 2>/dev/null | grep -v "backup" | head -n 1)
+                MOD_PATH=$(find_module_paths "$MOD_NAME" "$KVER" | grep -v "backup" | head -n 1)
                 if [ -n "$MOD_PATH" ]; then
-                    "$SIGN_SCRIPT" sha256 "$MOK_DIR/MOK.priv" "$MOK_DIR/MOK.der" "$MOD_PATH" || warn "Failed to sign $MOD_NAME"
+                    "$SIGN_SCRIPT" sha256 "$MOK_DIR/MOK.priv" "$MOK_DIR/MOK.der" "$MOD_PATH" \
+                        || warn "Failed to sign $MOD_NAME"
                 fi
             done
         else
-            warn "sign-file script not found! The modules could not be signed. Secure Boot may block them."
+            warn "sign-file script not found! Modules could not be signed. Secure Boot may block them."
         fi
 
-        # 3. Import MOK to EFI if not enrolled
+        # Enrol MOK if not yet enrolled
         if mokutil --test-key "$MOK_DIR/MOK.der" 2>/dev/null | grep -qi "not enrolled"; then
             info "Enrolling MOK key..."
-            printf "yunusemreyl\nyunusemreyl\n" | mokutil --import "$MOK_DIR/MOK.der" 2>/dev/null || warn "Failed to import MOK key."
-            
+            printf "yunusemreyl\nyunusemreyl\n" | mokutil --import "$MOK_DIR/MOK.der" 2>/dev/null \
+                || warn "Failed to import MOK key."
+
             echo ""
             echo -e "${YELLOW}╔═══════════════════════════════════════════════════════════╗${NC}"
             echo -e "${YELLOW}║  🔒 Secure Boot is ENABLED                                ║${NC}"
@@ -273,13 +301,14 @@ DKMSRGB
             echo -e "${YELLOW}║  5. Select 'Reboot'                                       ║${NC}"
             echo -e "${YELLOW}╚═══════════════════════════════════════════════════════════╝${NC}"
             echo ""
-            warn "Skipping module load. The modules will load automatically after MOK enrollment."
+            warn "Skipping module load. Modules will load automatically after MOK enrollment."
         else
-            ok "MOK key is already enrolled. Modules can be loaded."
+            ok "MOK key is already enrolled."
         fi
     fi
 
-    # Load the modules
+    # ── Load modules ─────────────────────────────────────────────────────────
+    # FIX: MOK_PENDING check now always safe because MOK_DIR is always defined
     MOK_PENDING=false
     if $SECUREBOOT && mokutil --test-key "$MOK_DIR/MOK.der" 2>/dev/null | grep -qi "not enrolled"; then
         MOK_PENDING=true
@@ -290,14 +319,29 @@ DKMSRGB
     elif $STOCK_FAN_SUPPORT; then
         info "Loading modules..."
         modprobe led_class_multicolor 2>/dev/null || true
-        modprobe hp_rgb_lighting 2>/dev/null || warn "hp-rgb-lighting could not be loaded. (Secure boot issue?)"
+        # FIX: use modprobe (not insmod) — searches DKMS-installed paths correctly
+        if modprobe hp_rgb_lighting 2>/dev/null; then
+            ok "hp-rgb-lighting loaded successfully"
+        else
+            warn "hp-rgb-lighting could not be loaded. (Secure Boot issue?)"
+        fi
         ok "hp-rgb-lighting (RGB) installed. Stock hp-wmi handles fan control."
     else
         info "Loading modules..."
-        rmmod hp_wmi 2>/dev/null || true
+        # FIX: modprobe -r handles dependency unloading correctly (rmmod does not)
+        modprobe -r hp_wmi 2>/dev/null || true
         modprobe led_class_multicolor 2>/dev/null || true
-        modprobe hp_wmi 2>/dev/null || warn "hp-wmi could not be loaded."
-        modprobe hp_rgb_lighting 2>/dev/null || warn "hp-rgb-lighting could not be loaded."
+        # FIX: modprobe searches /lib/modules AND /usr/lib/modules (insmod cannot)
+        if modprobe hp_wmi 2>/dev/null; then
+            ok "hp-wmi loaded successfully"
+        else
+            warn "hp-wmi could not be loaded — check: dmesg | tail -20"
+        fi
+        if modprobe hp_rgb_lighting 2>/dev/null; then
+            ok "hp-rgb-lighting loaded successfully"
+        else
+            warn "hp-rgb-lighting could not be loaded."
+        fi
         ok "Both hp-wmi and hp-rgb-lighting installed."
     fi
 
@@ -316,8 +360,9 @@ do_uninstall() {
     [[ $EUID -ne 0 ]] && error "This script must be run as root (use sudo)."
 
     info "Unloading modules..."
-    rmmod hp_wmi 2>/dev/null || true
-    rmmod hp_rgb_lighting 2>/dev/null || true
+    # FIX: modprobe -r handles inter-module dependencies; rmmod does not
+    modprobe -r hp_rgb_lighting 2>/dev/null || true
+    modprobe -r hp_wmi          2>/dev/null || true
 
     info "Removing DKMS entry..."
     if dkms status "$MODNAME/$MODVER" 2>/dev/null | grep -q "$MODNAME"; then
@@ -328,24 +373,36 @@ do_uninstall() {
         warn "DKMS entry not found. Nothing to remove."
     fi
 
-    # Restore original driver if backup exists
+    # Restore original driver backups
     info "Restoring original driver backups (if any)..."
     KVER=$(uname -r)
     FOUND_BACKUP=false
-    for BU_FILE in $(find /lib/modules/"$KVER" -name "hp-wmi.ko*.backup" 2>/dev/null); do
+
+    # FIX: search both /lib/modules and /usr/lib/modules — Arch/CachyOS use the latter
+    while IFS= read -r BU_FILE; do
         ORIG_FILE="${BU_FILE%.backup}"
         info "Restoring $ORIG_FILE from backup..."
         mv "$BU_FILE" "$ORIG_FILE"
         FOUND_BACKUP=true
-    done
+    done < <(find_module_paths "hp-wmi.ko*.backup" "$KVER")
 
     if [ "$FOUND_BACKUP" = true ]; then
         depmod -a
+        info "Reloading original hp-wmi module..."
+        modprobe hp_wmi 2>/dev/null || warn "Could not reload original hp-wmi module."
+    else
+        info "No backup found — skipping restore."
     fi
+}
 
-    # Reload original kernel module
-    info "Reloading original hp-wmi module..."
-    modprobe hp_wmi 2>/dev/null || warn "Could not reload original hp-wmi module."
+# ── Helper (also used in uninstall) ──────────────────────────────────────────
+find_module_paths() {
+    local pattern="$1"
+    local kver="${2:-$(uname -r)}"
+    find \
+        "/lib/modules/$kver" \
+        "/usr/lib/modules/$kver" \
+        -name "$pattern" 2>/dev/null | sort -u
 }
 
 # ── Main ──────────────────────────────────────────────────────────────────────
