@@ -871,6 +871,14 @@ static int hp_wmi_fan_speed_reset(struct hp_wmi_hwmon_priv *priv)
 	if (ret)
 		return ret;
 
+	/*
+	 * On Victus S-series the EC requires an explicit zero-RPM command to
+	 * resume automatic control.  On other devices only clearing the max-fan
+	 * flag is sufficient; sending the victus_s command would fail.
+	 */
+	if (!priv->fan_speed_available)
+		return 0;
+
 	return hp_wmi_perform_query(HPWMI_VICTUS_S_FAN_SPEED_SET_QUERY,
 				    HPWMI_GM, &fan_speed, sizeof(fan_speed), 0);
 }
@@ -2494,14 +2502,17 @@ static umode_t hp_wmi_hwmon_is_visible(const void *data,
 
 	case hwmon_fan:
 		if (attr == hwmon_fan_input) {
-			if (!priv->fan_speed_available)
-				return 0;
-			if (hp_wmi_get_fan_speed_victus_s(channel) >= 0)
-				return 0444;
+			if (priv->fan_speed_available) {
+				if (hp_wmi_get_fan_speed_victus_s(channel) >= 0)
+					return 0444;
+			} else {
+				if (hp_wmi_get_fan_speed(channel) >= 0)
+					return 0444;
+			}
 		} else if (attr == hwmon_fan_max) {
-			return 0444;
+			return priv->fan_speed_available ? 0444 : 0;
 		} else if (attr == hwmon_fan_target) {
-			return 0644;
+			return priv->fan_speed_available ? 0644 : 0;
 		}
 		break;
 
