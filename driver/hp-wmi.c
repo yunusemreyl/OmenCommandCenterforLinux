@@ -160,7 +160,7 @@ static const char *const omen_thermal_profile_boards[] = {
 	"878A", "878B", "878C", "87B5", "886B", "886C", "88C8", "88CB",
 	"88D1", "88D2", "88F4", "88F5", "88F6", "88F7", "88FD", "88FE",
 	"88FF", "8900", "8901", "8902", "8912", "8917", "8918", "8949",
-	"894A", "89EB", "8A15", "8A42", "8BAD", "8C77", "8E35", "8E41",
+	"894A", "89EB", "8A15", "8A42", "8BAD", "8C77", "8E35", "8E41", "8D41",
 };
 
 /*
@@ -230,10 +230,6 @@ static const struct dmi_system_id victus_s_thermal_profile_boards[] __initconst 
 	{
 		.matches    = {DMI_MATCH(DMI_BOARD_NAME, "8C9C")},
 		.driver_data = (void *)&victus_s_thermal_params,
-	},
-	{
-		.matches    = {DMI_MATCH(DMI_BOARD_NAME, "8D41")},
-		.driver_data = (void *)&omen_v1_thermal_params_omen_ec,
 	},
 	{
 		.matches    = {DMI_MATCH(DMI_BOARD_NAME, "8D87")},
