@@ -378,6 +378,17 @@ class PowerProfileController:
 # ============================================================
 # MUX CONTROLLER
 # ============================================================
+
+# Path exposed by hp-wmi driver via HPWMI_SYSTEM_DEVICE_MODE (0x40).
+# Values: 0 = integrated, 1 = discrete, 2 = hybrid.
+# This is a direct BIOS call — no third-party tool required.
+# NOTE: A reboot is required for the change to take effect on most models.
+_BIOS_MUX_PATH = "/sys/devices/platform/hp-wmi/graphics_mode"
+
+_BIOS_MUX_READ = {0: "integrated", 1: "discrete", 2: "hybrid"}
+_BIOS_MUX_WRITE = {"integrated": 0, "discrete": 1, "hybrid": 2}
+
+
 class MUXController:
     def __init__(self):
         self.envycontrol  = shutil.which("envycontrol")
@@ -389,12 +400,17 @@ class MUXController:
         self._detect_backend()
 
     def _detect_backend(self):
-        if self.envycontrol:
+        # Prefer the direct BIOS path — no external tools needed.
+        if os.path.exists(_BIOS_MUX_PATH):
+            self.backend = "bios"
+        elif self.envycontrol:
             self.backend = "envycontrol"
         elif self.supergfxctl:
             self.backend = "supergfxctl"
         elif self.prime_select:
             self.backend = "prime-select"
+
+        logger.info(f"MUX backend: {self.backend or 'none'}")
 
     def is_available(self):
         return self.backend is not None
@@ -409,7 +425,11 @@ class MUXController:
 
         mode = "unknown"
         try:
-            if self.backend == "envycontrol" and self.envycontrol:
+            if self.backend == "bios":
+                with open(_BIOS_MUX_PATH) as f:
+                    val = int(f.read().strip())
+                mode = _BIOS_MUX_READ.get(val, "unknown")
+            elif self.backend == "envycontrol" and self.envycontrol:
                 mode = subprocess.check_output([self.envycontrol, "--query"],
                                                stderr=subprocess.STDOUT, timeout=5).decode().strip().lower()
             elif self.backend == "supergfxctl" and self.supergfxctl:
@@ -427,15 +447,45 @@ class MUXController:
 
     def set_mode(self, mode):
         try:
-            if self.backend == "envycontrol" and self.envycontrol:
+            if self.backend == "bios":
+                val = _BIOS_MUX_WRITE.get(mode)
+                if val is None:
+                    return f"Error: unknown mode '{mode}' for BIOS backend"
+                with open(_BIOS_MUX_PATH, "w") as f:
+                    f.write(str(val))
+
+                # Check if the change took effect immediately (Advanced Optimus).
+                # Non-Advanced Optimus boards latch the value at next boot — the
+                # readback still returns the old value until reboot.
+                time.sleep(0.1)
+                try:
+                    with open(_BIOS_MUX_PATH) as f:
+                        readback = int(f.read().strip())
+                    advanced_optimus = (readback == val)
+                except Exception:
+                    advanced_optimus = False
+
+                self._cached_mode = mode
+                self._last_check  = time.time()
+
+                if advanced_optimus:
+                    logger.info(f"MUX set to '{mode}' via BIOS sysfs (Advanced Optimus — no reboot needed)")
+                    return "OK"
+                else:
+                    logger.info(f"MUX set to '{mode}' via BIOS sysfs (reboot required)")
+                    return "OK_REBOOT_REQUIRED"
+
+            elif self.backend == "envycontrol" and self.envycontrol:
                 subprocess.run([self.envycontrol, "-s", mode], check=True, timeout=10)
                 return "OK"
             elif self.backend == "supergfxctl" and self.supergfxctl:
-                m = {"hybrid": "Hybrid", "discrete": "Dedicated", "integrated": "Integrated"}.get(mode, mode)
+                m = {"hybrid": "Hybrid", "discrete": "Dedicated",
+                     "integrated": "Integrated"}.get(mode, mode)
                 subprocess.run([self.supergfxctl, "-m", m], check=True, timeout=10)
                 return "OK"
             elif self.backend == "prime-select" and self.prime_select:
-                m = {"hybrid": "on-demand", "discrete": "nvidia", "integrated": "intel"}.get(mode, mode)
+                m = {"hybrid": "on-demand", "discrete": "nvidia",
+                     "integrated": "intel"}.get(mode, mode)
                 subprocess.run([self.prime_select, m], check=True, timeout=10)
                 return "OK"
         except Exception as e:
