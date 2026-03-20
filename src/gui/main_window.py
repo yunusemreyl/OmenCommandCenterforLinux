@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
 """
 OMEN Command Center for Linux - Main Window
-Sidebar navigation ile 5 sekme + ayarlar.
+Sidebar navigation with 5 tabs + settings.
 """
-import sys, os, json, fcntl
-
-# Single-instance handling is managed by Adw.Application below via DBus.
+import sys, os, json
 
 try:
     import tomllib  # Python 3.11+
@@ -14,10 +12,11 @@ except ImportError:
         import tomli as tomllib  # fallback for Python ≤3.10
     except ImportError:
         tomllib = None  # No TOML support — will use JSON config only
+
 import gi
 gi.require_version('Gtk', '4.0')
 gi.require_version('Adw', '1')
-from gi.repository import Gtk, Adw, Gdk, GLib, Gio
+from gi.repository import Gtk, Adw, Gdk, GLib, Gio, GdkPixbuf
 
 # Add parent path for imports
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -35,7 +34,6 @@ elif os.path.exists(os.path.join(PROJ_INSTALLED, "images", "omenapplogo.png")):
     IMAGES_DIR = os.path.join(PROJ_INSTALLED, "images")
     PROJECT_DIR = PROJ_INSTALLED
 else:
-    # Final fallback
     IMAGES_DIR = "/usr/share/hp-manager/images"
     PROJECT_DIR = "/usr/share/hp-manager"
 
@@ -50,27 +48,28 @@ from pages.dashboard_page import DashboardPage
 from pages.keyboard_page import KeyboardPage
 
 APP_VERSION = "1.1.5"
-CONFIG_FILE = os.path.expanduser("~/.config/hp-manager.toml")
+CONFIG_FILE      = os.path.expanduser("~/.config/hp-manager.toml")
 CONFIG_FILE_JSON = os.path.expanduser("~/.config/hp-manager.json")
 
-# ── TRANSLATIONS (centralized in i18n.py to avoid __main__ double-import) ──
+# ── Translations (centralised in i18n.py) ────────────────────────────────────
 from i18n import T, set_lang, get_lang
 
+
 def get_model_branding():
+    """Return 'OMEN', 'Victus', or 'HP Laptop' based on DMI product name."""
     try:
-        # Check both product_name and product_family to be safe
-        for dmi_file in ("/sys/class/dmi/id/product_name", "/sys/class/dmi/id/product_family"):
+        for dmi_file in ("/sys/class/dmi/id/product_name",
+                         "/sys/class/dmi/id/product_family"):
             if os.path.exists(dmi_file):
                 with open(dmi_file, "r") as f:
                     name = f.read().lower()
-                    if "omen" in name:
-                        return "OMEN"
-                    elif "victus" in name:
-                        return "Victus"
+                if "omen" in name:
+                    return "OMEN"
+                if "victus" in name:
+                    return "Victus"
     except Exception:
         pass
     return "HP Laptop"
-
 
 
 class HPManagerWindow(Gtk.ApplicationWindow):
@@ -79,22 +78,22 @@ class HPManagerWindow(Gtk.ApplicationWindow):
         self.set_title("OMEN Command Center for Linux")
         self.set_default_size(1100, 750)
 
-        # Add local icons to theme
+        # Register local icon directory with the theme
         display = Gdk.Display.get_default()
         icon_theme = Gtk.IconTheme.get_for_display(display)
         if IMAGES_DIR not in icon_theme.get_search_path():
             icon_theme.add_search_path(IMAGES_DIR)
-        
+
         self.set_icon_name("omenapplogo")
 
         self.app_theme = "dark"
         self.temp_unit = "C"
-        self.service = None
-        self.ready = False
+        self.service    = None
+        self.ready      = False
         self._rebuilding = False
 
         self._load_config()
-        
+
         sm = Adw.StyleManager.get_default()
         if self.app_theme == "dark":
             sm.set_color_scheme(Adw.ColorScheme.FORCE_DARK)
@@ -102,10 +101,12 @@ class HPManagerWindow(Gtk.ApplicationWindow):
             sm.set_color_scheme(Adw.ColorScheme.FORCE_LIGHT)
         else:
             sm.set_color_scheme(Adw.ColorScheme.DEFAULT)
-            
+
         self._apply_css()
         self._build_ui()
         self._connect_daemon()
+
+    # ── Config ───────────────────────────────────────────────────────────────
 
     def _load_config(self):
         try:
@@ -122,10 +123,7 @@ class HPManagerWindow(Gtk.ApplicationWindow):
                 self.temp_unit = data.get("temp_unit", "C")
                 set_lang(data.get("lang", "tr"))
                 self._save_config()
-            elif os.path.exists(CONFIG_FILE) and tomllib is None:
-                # TOML file exists but no TOML parser — read as JSON fallback
-                with open(CONFIG_FILE_JSON if os.path.exists(CONFIG_FILE_JSON) else CONFIG_FILE) as f:
-                    pass  # Cannot parse TOML, skip
+            # If only a TOML file exists but tomllib is unavailable, skip silently.
         except Exception:
             pass
 
@@ -137,32 +135,33 @@ class HPManagerWindow(Gtk.ApplicationWindow):
     def _save_config(self):
         try:
             os.makedirs(os.path.dirname(CONFIG_FILE), exist_ok=True)
-            # Write both TOML and JSON for compatibility
-            theme = self._toml_escape(self.app_theme)
-            lang = self._toml_escape(get_lang())
+            theme     = self._toml_escape(self.app_theme)
+            lang      = self._toml_escape(get_lang())
             temp_unit = self._toml_escape(self.temp_unit)
             with open(CONFIG_FILE, "w") as f:
                 f.write(f'theme = "{theme}"\n')
                 f.write(f'lang = "{lang}"\n')
                 f.write(f'temp_unit = "{temp_unit}"\n')
-            # Also save JSON fallback for systems without tomllib
+            # JSON fallback for systems without tomllib
             with open(CONFIG_FILE_JSON, "w") as f:
-                json.dump({"theme": self.app_theme, "lang": get_lang(), "temp_unit": self.temp_unit}, f)
+                json.dump({"theme": self.app_theme, "lang": get_lang(),
+                           "temp_unit": self.temp_unit}, f)
         except Exception:
             pass
 
+    # ── Theming helpers ───────────────────────────────────────────────────────
+
     def _get_system_accent(self):
-        """Try to read the system/GTK accent color."""
+        """Return the system/GTK accent colour as a hex string."""
         try:
-            sm = Adw.StyleManager.get_default()
-            ac = sm.get_accent_color()
+            sm   = Adw.StyleManager.get_default()
+            ac   = sm.get_accent_color()
             rgba = ac.to_rgba()
             r, g, b = int(rgba.red * 255), int(rgba.green * 255), int(rgba.blue * 255)
             if r or g or b:
                 return f"#{r:02X}{g:02X}{b:02X}"
         except Exception:
             pass
-        # Fallback: default blue accent
         return "#3584e4"
 
     @staticmethod
@@ -173,69 +172,66 @@ class HPManagerWindow(Gtk.ApplicationWindow):
     @staticmethod
     def _lighten(hex_color, amount=30):
         r, g, b = HPManagerWindow._hex_to_rgb(hex_color)
-        r = min(255, r + amount)
-        g = min(255, g + amount)
-        b = min(255, b + amount)
-        return f"#{r:02X}{g:02X}{b:02X}"
+        return f"#{min(255,r+amount):02X}{min(255,g+amount):02X}{min(255,b+amount):02X}"
 
     @staticmethod
     def _darken(hex_color, amount=30):
         r, g, b = HPManagerWindow._hex_to_rgb(hex_color)
-        r = max(0, r - amount)
-        g = max(0, g - amount)
-        b = max(0, b - amount)
-        return f"#{r:02X}{g:02X}{b:02X}"
+        return f"#{max(0,r-amount):02X}{max(0,g-amount):02X}{max(0,b-amount):02X}"
 
     def _apply_css(self):
-        # ── HP Victus / Omen style theme with system accent ──
-        accent = self._get_system_accent()
+        accent       = self._get_system_accent()
         accent_hover = self._lighten(accent, 20)
-        ar, ag, ab = self._hex_to_rgb(accent)
-        accent_dim = f"rgba({ar}, {ag}, {ab}, 0.15)"
-        accent_shadow = f"rgba({ar}, {ag}, {ab}, 0.3)"
-        accent_shadow_strong = f"rgba({ar}, {ag}, {ab}, 0.35)"
-        accent_glow = f"rgba({ar}, {ag}, {ab}, 0.08)"
-        accent_border_hover = f"rgba({ar}, {ag}, {ab}, 0.3)"
-        accent_dark = self._darken(accent, 60)
+        ar, ag, ab   = self._hex_to_rgb(accent)
+        accent_dim            = f"rgba({ar}, {ag}, {ab}, 0.15)"
+        accent_shadow         = f"rgba({ar}, {ag}, {ab}, 0.3)"
+        accent_shadow_strong  = f"rgba({ar}, {ag}, {ab}, 0.35)"
+        accent_glow           = f"rgba({ar}, {ag}, {ab}, 0.08)"
+        accent_border_hover   = f"rgba({ar}, {ag}, {ab}, 0.3)"
+        accent_dark           = self._darken(accent, 60)
 
         sm = Adw.StyleManager.get_default()
-        actual_theme = "dark" if self.app_theme == "dark" else ("light" if self.app_theme == "light" else ("dark" if sm.get_dark() else "light"))
+        actual_theme = (
+            "dark"  if self.app_theme == "dark"  else
+            "light" if self.app_theme == "light" else
+            ("dark" if sm.get_dark() else "light")
+        )
 
         if actual_theme == "dark":
-            bg = "#1e1e24"
-            sidebar_bg = "rgba(0,0,0,0.45)"
-            card_bg = "rgba(0,0,0,0.3)"
-            card_border = "rgba(255,255,255,0.06)"
-            sep_color = "rgba(255,255,255,0.08)"
-            fg = "#ffffff"
-            fg_dim = "#cccccc"
-            fg_very_dim = "#999999"
-            input_bg = "rgba(255,255,255,0.08)"
+            bg             = "#1e1e24"
+            sidebar_bg     = "rgba(0,0,0,0.45)"
+            card_bg        = "rgba(0,0,0,0.3)"
+            card_border    = "rgba(255,255,255,0.06)"
+            sep_color      = "rgba(255,255,255,0.08)"
+            fg             = "#ffffff"
+            fg_dim         = "#cccccc"
+            fg_very_dim    = "#999999"
+            input_bg       = "rgba(255,255,255,0.08)"
             clean_ram_color = "inherit"
         else:
-            bg = "#f0f0f4"
-            sidebar_bg = "rgba(255,255,255,0.5)"
-            card_bg = "rgba(255,255,255,0.65)"
-            card_border = "rgba(0,0,0,0.08)"
-            sep_color = "rgba(0,0,0,0.12)"
-            fg = "#121212"
-            fg_dim = "#444444"
-            fg_very_dim = "#666666"
-            input_bg = "rgba(0,0,0,0.06)"
+            bg             = "#f0f0f4"
+            sidebar_bg     = "rgba(255,255,255,0.5)"
+            card_bg        = "rgba(255,255,255,0.65)"
+            card_border    = "rgba(0,0,0,0.08)"
+            sep_color      = "rgba(0,0,0,0.12)"
+            fg             = "#121212"
+            fg_dim         = "#444444"
+            fg_very_dim    = "#666666"
+            input_bg       = "rgba(0,0,0,0.06)"
             clean_ram_color = "#000000"
-            accent = self._darken(accent, 20)
-            accent_hover = self._darken(accent, 10)
-            ar, ag, ab = self._hex_to_rgb(accent)
-            accent_dim = f"rgba({ar}, {ag}, {ab}, 0.15)"
-            accent_shadow = f"rgba({ar}, {ag}, {ab}, 0.3)"
+            accent              = self._darken(accent, 20)
+            accent_hover        = self._darken(accent, 10)
+            ar, ag, ab          = self._hex_to_rgb(accent)
+            accent_dim          = f"rgba({ar}, {ag}, {ab}, 0.15)"
+            accent_shadow       = f"rgba({ar}, {ag}, {ab}, 0.3)"
             accent_shadow_strong = f"rgba({ar}, {ag}, {ab}, 0.35)"
-            accent_glow = f"rgba({ar}, {ag}, {ab}, 0.08)"
+            accent_glow         = f"rgba({ar}, {ag}, {ab}, 0.08)"
             accent_border_hover = f"rgba({ar}, {ag}, {ab}, 0.3)"
-            accent_dark = self._darken(accent, 60)
+            accent_dark         = self._darken(accent, 60)
 
-        # Color preset CSS
         presets_css = ""
-        preset_colors = ["#FF0000", "#00FF00", "#0000FF", "#FFFFFF", "#FFFF00", "#00FFFF", "#FF00FF", "#FF6600", "#7B00FF"]
+        preset_colors = ["#FF0000","#00FF00","#0000FF","#FFFFFF","#FFFF00",
+                         "#00FFFF","#FF00FF","#FF6600","#7B00FF"]
         for i, c in enumerate(preset_colors):
             presets_css += f"""
             .preset-{i} {{
@@ -325,7 +321,7 @@ class HPManagerWindow(Gtk.ApplicationWindow):
             background-color: {sidebar_bg};
             border-right: 1px solid {sep_color};
         }}
-        
+
         separator {{
             background: {sep_color};
             min-width: 1px; min-height: 1px;
@@ -809,106 +805,97 @@ class HPManagerWindow(Gtk.ApplicationWindow):
             Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
         )
 
+    # ── UI construction ───────────────────────────────────────────────────────
+
     def _build_ui(self):
-        # Main horizontal layout
         main_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
         self.set_child(main_box)
 
-        # ── Sidebar ──
+        # Sidebar
         sidebar = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         sidebar.add_css_class("sidebar")
         sidebar.set_size_request(82, -1)
 
-        # Logo at top
         logo_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, halign=Gtk.Align.CENTER)
         logo_box.add_css_class("sidebar-logo")
 
         self.logo_icon = Gtk.Image()
         self.logo_icon.set_pixel_size(48)
         self.logo_icon.add_css_class("logo-img")
-        
         self._update_logo()
-        
+
         logo_box.append(self.logo_icon)
         sidebar.append(logo_box)
 
-        # Navigation items
         self.stack = Gtk.Stack()
         self.stack.set_transition_type(Gtk.StackTransitionType.CROSSFADE)
-        self.nav_labels = {}  # track nav labels for language update
         self.stack.set_transition_duration(150)
-
+        self.nav_labels  = {}
         self.nav_buttons = {}
 
         nav_items = [
             ("dashboard", T("dashboard"), "view-grid-symbolic"),
-            ("fan", T("fan"), "weather-tornado-symbolic"),
-            ("lighting", T("lighting"), "weather-clear-night-symbolic"),
-            ("keyboard", T("keyboard"), "input-keyboard-symbolic"),
-            ("mux", "MUX", "video-display-symbolic"),
+            ("fan",       T("fan"),       "weather-tornado-symbolic"),
+            ("lighting",  T("lighting"),  "weather-clear-night-symbolic"),
+            ("keyboard",  T("keyboard"),  "input-keyboard-symbolic"),
+            ("mux",       "MUX",          "video-display-symbolic"),
         ]
 
         nav_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2, margin_top=8)
         for page_id, label, icon_name in nav_items:
-            btn = self._make_nav_button(page_id, label, icon_name)
-            nav_box.append(btn)
+            nav_box.append(self._make_nav_button(page_id, label, icon_name))
         sidebar.append(nav_box)
 
-        # Spacer
-        sidebar.append(Gtk.Label(vexpand=True))
+        sidebar.append(Gtk.Label(vexpand=True))  # spacer
 
-        # Settings at bottom
         settings_btn = self._make_nav_button("settings", T("settings"), "emblem-system-symbolic")
         sidebar.append(settings_btn)
         sidebar.append(Gtk.Box(margin_bottom=10))
 
         main_box.append(sidebar)
 
-        # ── Content Area ──
         content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, hexpand=True, vexpand=True)
         content.append(self.stack)
         main_box.append(content)
 
-        # ── Create pages ──
+        # Pages
         self.dashboard_page = DashboardPage(service=self.service, on_navigate=self._navigate)
-        self.fan_page = FanPage(service=self.service)
-        self.lighting_page = LightingPage(service=self.service)
-        self.keyboard_page = KeyboardPage(service=self.service)
-        self.mux_page = MUXPage(service=self.service)
-        self.settings_page = SettingsPage(
+        self.fan_page        = FanPage(service=self.service)
+        self.lighting_page   = LightingPage(service=self.service)
+        self.keyboard_page   = KeyboardPage(service=self.service)
+        self.mux_page        = MUXPage(service=self.service)
+        self.settings_page   = SettingsPage(
             on_theme_change=self._on_theme_change,
             on_lang_change=self._on_lang_change,
-            on_temp_unit_change=self._on_temp_unit_change
+            on_temp_unit_change=self._on_temp_unit_change,
         )
 
         self.stack.add_named(self.dashboard_page, "dashboard")
-        self.stack.add_named(self.fan_page, "fan")
-        self.stack.add_named(self.lighting_page, "lighting")
-        self.stack.add_named(self.keyboard_page, "keyboard")
-        self.stack.add_named(self.mux_page, "mux")
-        self.stack.add_named(self.settings_page, "settings")
+        self.stack.add_named(self.fan_page,        "fan")
+        self.stack.add_named(self.lighting_page,   "lighting")
+        self.stack.add_named(self.keyboard_page,   "keyboard")
+        self.stack.add_named(self.mux_page,        "mux")
+        self.stack.add_named(self.settings_page,   "settings")
 
-        # Sync initial theme to gauges
         self.fan_page.set_dark(self.app_theme == "dark")
         self.fan_page.set_temp_unit(self.temp_unit)
         self.dashboard_page.set_temp_unit(self.temp_unit)
 
-        # Sync settings dropdowns to saved config
         self._rebuilding = True
-        self.settings_page.set_theme_index(0 if self.app_theme == "dark" else 1 if self.app_theme == "light" else 2)
+        self.settings_page.set_theme_index(
+            0 if self.app_theme == "dark" else 1 if self.app_theme == "light" else 2)
         self.settings_page.set_lang_index(0 if get_lang() == "tr" else 1)
         self.settings_page.set_temp_unit_index(0 if self.temp_unit == "C" else 1)
         self._rebuilding = False
 
-        # Select first page
         self._navigate("dashboard")
 
     def _make_nav_button(self, page_id, label, icon_name):
         btn = Gtk.Button()
         btn.add_css_class("nav-item")
 
-        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4, halign=Gtk.Align.CENTER)
-
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4,
+                      halign=Gtk.Align.CENTER)
         icon = Gtk.Image.new_from_icon_name(icon_name)
         icon.set_pixel_size(22)
         icon.add_css_class("nav-icon")
@@ -921,33 +908,23 @@ class HPManagerWindow(Gtk.ApplicationWindow):
 
         btn.set_child(box)
         btn.connect("clicked", lambda w, pid=page_id: self._navigate(pid))
-
         self.nav_buttons[page_id] = btn
         return btn
 
     def _navigate(self, page_id):
         self.stack.set_visible_child_name(page_id)
-
-        # Update active states
         for pid, btn in self.nav_buttons.items():
             if pid == page_id:
                 btn.add_css_class("active")
-            else:
-                if "active" in btn.get_css_classes():
-                    btn.remove_css_class("active")
-        
-        # Trigger page data refresh on visit
+            elif "active" in btn.get_css_classes():
+                btn.remove_css_class("active")
         page = self.stack.get_child_by_name(page_id)
         if hasattr(page, "refresh"):
             page.refresh()
 
     def _update_logo(self):
-        from gi.repository import Adw, GdkPixbuf
-        import os
-        
-        logo_filename = "omenapplogo.png"
-        logo_path = os.path.join(IMAGES_DIR, logo_filename)
-        
+        """Load the app logo from disk into self.logo_icon."""
+        logo_path = os.path.join(IMAGES_DIR, "omenapplogo.png")
         if hasattr(self, 'logo_icon'):
             if os.path.exists(logo_path):
                 pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(logo_path, 48, 48, True)
@@ -955,25 +932,26 @@ class HPManagerWindow(Gtk.ApplicationWindow):
             else:
                 self.logo_icon.set_from_icon_name("computer-symbolic")
 
+    # ── Daemon connection ─────────────────────────────────────────────────────
+
     def _connect_daemon(self):
         try:
             from pydbus import SystemBus
             bus = SystemBus()
             self.service = bus.get("com.yyl.hpmanager")
-            self.ready = True
-
-            # Pass service to pages
+            self.ready   = True
             self.dashboard_page.set_service(self.service)
             self.fan_page.set_service(self.service)
             self.lighting_page.set_service(self.service)
             if hasattr(self, 'keyboard_page'):
                 self.keyboard_page.service = self.service
             self.mux_page.set_service(self.service)
-
-            print("✓ Daemon bağlantısı kuruldu")
+            print("Daemon connected")
         except Exception as e:
-            print(f"⚠ Daemon bağlantısı kurulamadı: {e}")
-            print("  Uygulama daemon olmadan çalışmaya devam edecek.")
+            print(f"⚠ Daemon connection failed: {e}")
+            print("  Application will run without daemon support.")
+
+    # ── Settings callbacks ────────────────────────────────────────────────────
 
     def _on_theme_change(self, theme):
         if self._rebuilding:
@@ -981,32 +959,26 @@ class HPManagerWindow(Gtk.ApplicationWindow):
         self.app_theme = theme
         self._save_config()
         self._apply_css()
-        # Update fan gauges theme
-        is_dark = theme == "dark"
         if hasattr(self, 'fan_page'):
-            self.fan_page.set_dark(is_dark)
-        # Update logo dynamically
+            self.fan_page.set_dark(theme == "dark")
         self._update_logo()
 
     def _on_lang_change(self, lang):
         if self._rebuilding:
             return
         if get_lang() == lang:
-            return  # No change needed
+            return
         set_lang(lang)
         self._save_config()
-        # Live-update nav labels
         label_map = {
-            "dashboard": T("dashboard"),
-            "fan": T("fan"), "lighting": T("lighting"),
-            "mux": T("mux"), "settings": T("settings"),
-            "keyboard": T("keyboard"),
+            "dashboard": T("dashboard"), "fan": T("fan"),
+            "lighting":  T("lighting"),  "mux": "MUX",
+            "settings":  T("settings"),  "keyboard": T("keyboard"),
         }
         for pid, lbl in self.nav_labels.items():
             if pid in label_map:
                 lbl.set_label(label_map[pid])
-        # Defer rebuild to next idle — we can't destroy the settings page
-        # while still inside the dropdown's signal handler
+        # Defer page rebuild — cannot destroy widgets inside a signal handler
         GLib.idle_add(self._rebuild_pages)
 
     def _on_temp_unit_change(self, unit):
@@ -1019,80 +991,74 @@ class HPManagerWindow(Gtk.ApplicationWindow):
         if hasattr(self, 'dashboard_page'):
             self.dashboard_page.set_temp_unit(unit)
 
+    # ── Page rebuild (language change) ────────────────────────────────────────
+
     def _rebuild_pages(self):
         """Destroy and recreate all pages so T() picks up the new language."""
         self._rebuilding = True
         try:
             current_page = self.stack.get_visible_child_name()
 
-            # Cleanup old pages
-            if hasattr(self, 'dashboard_page'):
-                self.dashboard_page.cleanup()
-            if hasattr(self, 'fan_page'):
-                self.fan_page.cleanup()
-            if hasattr(self, 'lighting_page'):
-                self.lighting_page.cleanup()
+            for attr in ('dashboard_page', 'fan_page', 'lighting_page'):
+                page = getattr(self, attr, None)
+                if page and hasattr(page, 'cleanup'):
+                    page.cleanup()
 
-            # Remove old pages from stack
             for name in ("dashboard", "fan", "lighting", "keyboard", "mux", "settings"):
                 child = self.stack.get_child_by_name(name)
                 if child:
                     self.stack.remove(child)
 
-            # Update sidebar nav labels
-            for page_id, lbl_widget in self.nav_labels.items():
-                key = page_id  # matches i18n key
-                lbl_widget.set_label(T(key) if key != "mux" else "MUX")
-
-            # Recreate pages
             self.dashboard_page = DashboardPage(service=self.service)
-            self.fan_page = FanPage(service=self.service)
-            self.lighting_page = LightingPage(service=self.service)
-            self.keyboard_page = KeyboardPage(service=self.service)
-            self.mux_page = MUXPage(service=self.service)
-            self.settings_page = SettingsPage(
+            self.fan_page        = FanPage(service=self.service)
+            self.lighting_page   = LightingPage(service=self.service)
+            self.keyboard_page   = KeyboardPage(service=self.service)
+            self.mux_page        = MUXPage(service=self.service)
+            self.settings_page   = SettingsPage(
                 on_theme_change=self._on_theme_change,
                 on_lang_change=self._on_lang_change,
-                on_temp_unit_change=self._on_temp_unit_change
+                on_temp_unit_change=self._on_temp_unit_change,
             )
 
             self.stack.add_named(self.dashboard_page, "dashboard")
-            self.stack.add_named(self.fan_page, "fan")
-            self.stack.add_named(self.lighting_page, "lighting")
-            self.stack.add_named(self.keyboard_page, "keyboard")
-            self.stack.add_named(self.mux_page, "mux")
-            self.stack.add_named(self.settings_page, "settings")
+            self.stack.add_named(self.fan_page,        "fan")
+            self.stack.add_named(self.lighting_page,   "lighting")
+            self.stack.add_named(self.keyboard_page,   "keyboard")
+            self.stack.add_named(self.mux_page,        "mux")
+            self.stack.add_named(self.settings_page,   "settings")
 
-            # Restore theme + temp_unit state
             self.fan_page.set_dark(self.app_theme == "dark")
             self.fan_page.set_temp_unit(self.temp_unit)
             self.dashboard_page.set_temp_unit(self.temp_unit)
 
-            # Restore settings dropdowns
-            self.settings_page.set_theme_index(0 if self.app_theme == "dark" else 1 if self.app_theme == "light" else 2)
+            self.settings_page.set_theme_index(
+                0 if self.app_theme == "dark" else 1 if self.app_theme == "light" else 2)
             self.settings_page.set_lang_index(0 if get_lang() == "tr" else 1)
             self.settings_page.set_temp_unit_index(0 if self.temp_unit == "C" else 1)
 
-            # Restore page
             self._navigate(current_page or "dashboard")
         finally:
             self._rebuilding = False
-        return False  # Don't repeat GLib.idle_add
+        return False  # Do not repeat GLib.idle_add
+
+    # ── Lifecycle ─────────────────────────────────────────────────────────────
 
     def do_close_request(self):
-        """Cleanup on close."""
-        if hasattr(self, 'dashboard_page'):
-            self.dashboard_page.cleanup()
-        if hasattr(self, 'lighting_page'):
-            self.lighting_page.cleanup()
-        if hasattr(self, 'fan_page'):
-            self.fan_page.cleanup()
+        for attr in ('dashboard_page', 'lighting_page', 'fan_page'):
+            page = getattr(self, attr, None)
+            if page and hasattr(page, 'cleanup'):
+                try:
+                    page.cleanup()
+                except Exception as e:
+                    print(f"Cleanup error for {attr}: {e}")
         try:
             self.get_application().quit()
-        except:
-            pass
+        except Exception as e:
+            print(f"Application quit error: {e}")
         return False
 
+
+# ── Application ───────────────────────────────────────────────────────────────
 
 class HPManagerApp(Adw.Application):
     def __init__(self, **kwargs):
@@ -1100,18 +1066,18 @@ class HPManagerApp(Adw.Application):
         self.connect('activate', self._on_activate)
 
     def _on_activate(self, app):
-        print("Activating application window...", flush=True)
+        print("Initializing window...", flush=True)
         win = HPManagerWindow(application=app)
         win.present()
 
 
 def main():
     print("Initializing Application...", flush=True)
-    # Use a distinct ID for the GUI to avoid conflict with the daemon service name
-    # and use NON_UNIQUE to ensure it always launches a new instance for now
-    app = HPManagerApp(application_id="com.yyl.hpmanager.gui", flags=Gio.ApplicationFlags.FLAGS_NONE)
-    exit_status = app.run(sys.argv)
-    sys.exit(exit_status)
+    app = HPManagerApp(
+        application_id="com.yyl.hpmanager.gui",
+        flags=Gio.ApplicationFlags.FLAGS_NONE,
+    )
+    sys.exit(app.run(sys.argv))
 
 
 if __name__ == "__main__":
