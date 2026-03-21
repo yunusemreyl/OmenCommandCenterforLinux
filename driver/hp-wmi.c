@@ -405,8 +405,8 @@ static const struct key_entry hp_wmi_keymap[] = {
 	{KE_KEY,    0x21a5,  {KEY_PROG2}},    /* HP Omen Key */
 	{KE_KEY,    0x21a7,  {KEY_FN_ESC}},
 	{KE_KEY,    0x21a8,  {KEY_PROG2}},    /* HP Envy x360 programmable key */
-	{KE_KEY,    0x21a9,  {KEY_TOUCHPAD_OFF}},
-	{KE_KEY,    0x121a9, {KEY_TOUCHPAD_ON}},
+	{KE_IGNORE, 0x21a9,  {}},             /* Touchpad Off */
+	{KE_IGNORE, 0x121a9, {}},             /* Touchpad On  */
 	{KE_KEY,    0x231b,  {KEY_HELP}},
 	{KE_END,    0}
 };
