@@ -77,11 +77,7 @@ class KeyboardPage(Gtk.Box):
         keys_card.add_css_class("card")
         keys_card.append(Gtk.Label(label=T("special_keys"), xalign=0, css_classes=["heading"]))
         
-        # Omen/Victus Key
-        omen_row = self._make_shortcut_row(T("omen_key"), 
-                                        "Opens OMEN Command Center for Linux.", 
-                                        self.logo_path)
-        keys_card.append(omen_row)
+        # Removed Omen Key visually per user request.
 
         if self.model_type == "victus":
             calc_row = self._make_shortcut_row(T("calculator"), 

@@ -741,6 +741,7 @@ class HPManagerService(object):
 
         threading.Thread(target=self._monitor_loop, daemon=True).start()
 
+
     def _monitor_loop(self):
         """Background thread — collects sensor data to avoid blocking D-Bus calls."""
         _mux_last_poll: float = 0.0

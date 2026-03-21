@@ -232,14 +232,8 @@ static const struct dmi_system_id victus_s_thermal_profile_boards[] __initconst 
 		.driver_data = (void *)&victus_s_thermal_params,
 	},
 	{
-		/*
-		 * 8D41 (OMEN MAX Gaming 16-ah0xxx): EC read at offset 0x95
-		 * returns -EINVAL on probe causing module load failure.
-		 * Use no_ec_thermal_params so thermal profile is controlled
-		 * via WMI only, skipping the unreliable EC readback.
-		 */
 		.matches    = {DMI_MATCH(DMI_BOARD_NAME, "8D41")},
-		.driver_data = (void *)&omen_v1_no_ec_thermal_params,
+		.driver_data = (void *)&omen_v1_thermal_params_omen_ec,
 	},
 	{
 		.matches    = {DMI_MATCH(DMI_BOARD_NAME, "8D87")},
@@ -1150,6 +1144,7 @@ static ssize_t graphics_mode_store(struct device *dev,
 				   const char *buf, size_t count)
 {
 	u32 tmp;
+	u8 buffer[128] = {0};
 	int ret;
 
 	ret = kstrtou32(buf, 10, &tmp);
@@ -1160,8 +1155,10 @@ static ssize_t graphics_mode_store(struct device *dev,
 	if (tmp > 2)
 		return -EINVAL;
 
+	buffer[0] = tmp;
+
 	ret = hp_wmi_perform_query(HPWMI_SYSTEM_DEVICE_MODE, HPWMI_WRITE,
-				   &tmp, sizeof(tmp), 0);
+				   buffer, sizeof(buffer), 0);
 	if (ret)
 		return ret < 0 ? ret : -EINVAL;
 
@@ -2275,13 +2272,14 @@ static int thermal_profile_setup(struct platform_device *device)
 		    HP_NO_THERMAL_PROFILE_OFFSET) {
 			active_platform_profile = PLATFORM_PROFILE_BALANCED;
 		} else {
-			err = platform_profile_victus_s_get_ec(
-				&active_platform_profile);
-			if (err < 0)
-				return err;
+			err = platform_profile_victus_s_get_ec(&active_platform_profile);
+			if (err < 0) {
+				pr_warn("Failed to read initial thermal profile (%d), defaulting to balanced\n", err);
+				active_platform_profile = PLATFORM_PROFILE_BALANCED;
+			}
 		}
 
-		/* Init-time failure no longer prevents module load */
+		/* FIX: init-time error no longer blocks module loading */
 		err = platform_profile_victus_s_set_ec(active_platform_profile);
 		if (err < 0)
 			pr_warn("Failed to apply initial thermal profile (%d), continuing\n", err);

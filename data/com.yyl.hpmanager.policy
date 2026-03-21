@@ -4,7 +4,7 @@
  "http://www.freedesktop.org/standards/PolicyKit/1.0/policyconfig.dtd">
 <policyconfig>
   <vendor>yunusemreyl</vendor>
-  <vendor_url>https://github.com/yunusemreyl/LaptopManagerForHP</vendor_url>
+  <vendor_url>https://github.com/yunusemreyl/OmenCommandCenterforLinux</vendor_url>
   <action id="com.yyl.hpmanager.modify">
     <description>Modify HP Laptop Settings</description>
     <defaults>

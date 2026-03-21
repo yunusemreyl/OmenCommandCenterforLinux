@@ -1,5 +1,5 @@
 
- # OMEN Command Center for Linux v1.2.0 #
+ # OMEN Command Center for Linux v1.2.1 #
 <p align="center">
   <img src="images/omenapplogo.png" alt="Logo" width="250">
 
@@ -18,12 +18,12 @@
 
 **OMEN Command Center for Linux** is a native Linux application designed to unlock the full potential of HP Omen and Victus series laptops. It serves as an open-source alternative to the official OMEN Gaming Hub, providing essential controls in a modern, user-friendly interface.
 
-**New in v1.2.0:**
+**New in v1.2.1:**
 
-- 🛠 **Kernel Driver & DKMS**: Fixed -22 (EINVAL) probe errors on newer Omen/Victus boards (**8C77, 8D41**), added BIOS buffer validation to prevent kernel panics, and optimized fan speed polling to reduce `dmesg` noise.
-- 🔌 **D-Bus & Hardware Service**: Native MUX control for GPU switching (**Beta Stage**), auto-detection for Advanced Optimus, and non-blocking background polling for better GUI responsiveness.
-- 🎨 **UI & UX Refinements**: Redesigned MUX interface, fixed reversed RGB layouts by default, and optimized dashboard refresh logic for improved memory efficiency.
-- 📦 **Installer & Setup**: Added intelligence to detect existing power managers (TLP/tuned), implemented atomic self-restarting updates, and transitioned to `modprobe` for robust driver management.
+- 🛠 **Kernel Driver**: Fixed `-22` (EINVAL) probe crash on **8D41** (OMEN MAX 16-ah0xxx) by adding a graceful fallback to `BALANCED` when EC thermal profile offset is unknown. Fixed MUX switch `Invalid Argument` on **8C77** by correcting WMI write buffer size to 128 bytes.
+- 📦 **DKMS & Installer**: Resolved `Module already installed (unversioned module)` errors during kernel updates by implementing full-version DKMS cleanup with distro-agnostic regex parsing. Fixed AUR `PKGBUILD` missing `hp-wmi.c` in DKMS source copy.
+- ⚡ **Performance**: Removed background OMEN Key listener thread from daemon to reduce idle CPU/memory usage. Users can now bind the OMEN key (`KEY_PROG2`) via their DE's shortcut settings.
+- 🧹 **Cleanup**: Removed stale udev rules and systemd service references for the deprecated omen-key-listener from PKGBUILD.
 
 
 ## ✨ Features
@@ -57,8 +57,8 @@ Open a terminal and run:
 
 ```bash
 # Clone the repository
-git clone https://github.com/yunusemreyl/LaptopManagerForHP.git
-cd LaptopManagerForHP
+git clone https://github.com/yunusemreyl/OmenCommandCenterforLinux.git
+cd OmenCommandCenterforLinux
 
 # Run the installer (requires root)
 chmod +x setup.sh
@@ -80,7 +80,7 @@ The installer will automatically:
 To completely remove the application and its services:
 
 ```bash
-cd LaptopManagerForHP
+cd OmenCommandCenterforLinux
 sudo ./setup.sh uninstall
 ```
 
@@ -96,7 +96,7 @@ sudo ./setup.sh uninstall
 
 ## 👨‍💻 Credits & Acknowledgments
 - **Lead Developer**: [yunusemreyl](https://github.com/yunusemreyl)
-- **Contributors**: [ja4e](https://github.com/ja4e), [babyinlinux](https://github.com/babyinlinux), [entharia](https://github.com/entharia) , [Ykangul](https://github.com/YKangul), [connor2623](https://github.com/connor2623). 
+- **Contributors**: [ja4e](https://github.com/ja4e), [babyinlinux](https://github.com/babyinlinux), [entharia](https://github.com/entharia) 
 - **Kernel Module Development**: Special thanks to **[TUXOV](https://github.com/TUXOV/hp-wmi-fan-and-backlight-control)** for the `hp-wmi-fan-and-backlight-control` driver, which makes fan control possible.
 
 ## ⚖️ Legal Disclaimer

@@ -1,34 +1,25 @@
-# Python
+# GitHub Ignore List
+bugfix/
+SSDTFiles/
+.idea/
+.vscode/
 __pycache__/
 *.py[cod]
 *$py.class
-.venv/
+.env
+.venv
 env/
 venv/
 ENV/
-
-# OS
-.DS_Store
-.directory
-.swp
-*.bak
-
-# Kernel / Build
-*.o
-*.ko
-*.mod
-*.mod.c
-*.mod.o
-.*.cmd
-modules.order
-Module.symvers
-.tmp_versions/
-*.pkg.tar.zst
-*.tar.gz
-build.log
-dkms.conf.auto
-dkms.conf.full
-
-# Project specifics
-.context/
-LaptopManagerForHP/
+build/
+dist/
+*.spec
+driver/*.ko
+driver/*.o
+driver/*.mod.c
+driver/*.symvers
+driver/*.order
+driver/hp-wmi.kmod
+driver/.tmp_versions/
+driver/.*.cmd
+/tmp/

@@ -14,7 +14,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 MODNAME="hp-rgb-lighting"
-MODVER=$(grep -oP 'PACKAGE_VERSION="\K[^"]+' dkms.conf 2>/dev/null || echo "1.1.1")
+MODVER=$(grep -oP 'PACKAGE_VERSION="\K[^"]+' dkms.conf 2>/dev/null || echo "1.2.1")
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # MOK_DIR — initialised here so it is always defined (avoids unbound variable
@@ -185,27 +185,14 @@ do_install() {
 
     cd "$SCRIPT_DIR"
 
-    # Remove ALL previously installed versions of this module — not just $MODVER.
-    # Leftover entries from older versions cause "already installed (unversioned)"
-    # errors when the DKMS pacman/kernel hook runs dkms autoinstall without --force.
-    while IFS= read -r OLD_VER; do
-        [[ -z "$OLD_VER" ]] && continue
-        warn "Removing old DKMS entry: $MODNAME/$OLD_VER"
-        dkms remove -m "$MODNAME" -v "$OLD_VER" --all 2>/dev/null || true
-        rm -rf "/usr/src/${MODNAME}-${OLD_VER}"
-    done < <(dkms status "$MODNAME" 2>/dev/null \
-        | grep -oP "(?<=${MODNAME}[/,] )[^,: ]+" \
-        | sort -u)
-
-    # Also delete any stale .ko.zst files left in installed kernel directories.
-    # Without this, dkms autoinstall (kernel update hook) sees them as
-    # "already installed (unversioned)" and aborts without --force.
-    for KVER_DIR in /usr/lib/modules/*/updates/dkms /lib/modules/*/updates/dkms; do
-        [[ -d "$KVER_DIR" ]] || continue
-        rm -f "$KVER_DIR/hp-wmi.ko.zst"         2>/dev/null || true
-        rm -f "$KVER_DIR/hp-rgb-lighting.ko.zst" 2>/dev/null || true
-    done
-
+    # Tüm eski/artık DKMS girdilerini temizle
+    if dkms status "$MODNAME" 2>/dev/null | grep -q "$MODNAME"; then
+        warn "Removing existing DKMS entries for $MODNAME..."
+        for v in $(dkms status "$MODNAME" | head -n 1 | grep -oP '(?<='"$MODNAME"'[/, ])[^,:]+' | tr -d ' '); do
+            [ -z "$v" ] && continue
+            dkms remove -m "$MODNAME" -v "$v" --all 2>/dev/null || true
+        done
+    fi
     rm -rf "/usr/src/${MODNAME}-${MODVER}"
     mkdir -p "/usr/src/${MODNAME}-${MODVER}"
 
@@ -381,28 +368,12 @@ do_uninstall() {
     modprobe -r hp_wmi          2>/dev/null || true
 
     info "Removing DKMS entry..."
-    # Remove ALL versions — not just current — to prevent leftover stale entries
-    REMOVED_ANY=false
-    while IFS= read -r OLD_VER; do
-        [[ -z "$OLD_VER" ]] && continue
-        dkms remove -m "$MODNAME" -v "$OLD_VER" --all 2>/dev/null || true
-        rm -rf "/usr/src/${MODNAME}-${OLD_VER}"
-        REMOVED_ANY=true
-    done < <(dkms status "$MODNAME" 2>/dev/null \
-        | grep -oP "(?<=${MODNAME}[/,] )[^,: ]+" \
-        | sort -u)
-
-    # Also purge any leftover .ko.zst files not tracked by DKMS
-    for KVER_DIR in /usr/lib/modules/*/updates/dkms /lib/modules/*/updates/dkms; do
-        [[ -d "$KVER_DIR" ]] || continue
-        rm -f "$KVER_DIR/hp-wmi.ko.zst"         2>/dev/null || true
-        rm -f "$KVER_DIR/hp-rgb-lighting.ko.zst" 2>/dev/null || true
-    done
-
-    if $REMOVED_ANY; then
+    if dkms status "$MODNAME/$MODVER" 2>/dev/null | grep -q "$MODNAME"; then
+        dkms remove -m "$MODNAME" -v "$MODVER" --all
+        rm -rf "/usr/src/${MODNAME}-${MODVER}"
         ok "Uninstalled successfully."
     else
-        warn "No DKMS entries found. Nothing to remove."
+        warn "DKMS entry not found. Nothing to remove."
     fi
 
     # Restore original driver backups
@@ -425,6 +396,16 @@ do_uninstall() {
     else
         info "No backup found — skipping restore."
     fi
+}
+
+# ── Helper (also used in uninstall) ──────────────────────────────────────────
+find_module_paths() {
+    local pattern="$1"
+    local kver="${2:-$(uname -r)}"
+    find \
+        "/lib/modules/$kver" \
+        "/usr/lib/modules/$kver" \
+        -name "$pattern" 2>/dev/null | sort -u
 }
 
 # ── Main ──────────────────────────────────────────────────────────────────────

@@ -27,8 +27,8 @@ A Linux kernel module that adds manual fan speed control and keyboard RGB backli
 The included `install.sh` script auto-detects your distro, installs dependencies, and sets up DKMS:
 
 ```bash
-git clone https://github.com/yunusemreyl/hp-wmi-fan-and-backlight-control
-cd hp-wmi-fan-and-backlight-control
+git clone https://github.com/yunusemreyl/OmenCommandCenterforLinux
+cd OmenCommandCenterforLinux/driver
 sudo ./install.sh
 ```
 
@@ -51,8 +51,8 @@ sudo LLVM=1 ./install.sh
 ### Manual DKMS Install
 
 ```bash
-git clone https://github.com/yunusemreyl/hp-wmi-fan-and-backlight-control
-cd hp-wmi-fan-and-backlight-control
+git clone https://github.com/yunusemreyl/OmenCommandCenterforLinux
+cd OmenCommandCenterforLinux/driver
 make
 sudo make install-dkms
 ```
@@ -60,8 +60,8 @@ sudo make install-dkms
 ### Arch Linux (AUR)
 
 ```bash
-git clone https://github.com/yunusemreyl/hp-wmi-fan-and-backlight-control
-cd hp-wmi-fan-and-backlight-control
+git clone https://github.com/yunusemreyl/OmenCommandCenterforLinux
+cd OmenCommandCenterforLinux/driver
 make install-arch
 ```
 
@@ -73,7 +73,7 @@ Add the repo as a flake input:
 {
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    hp_wmi_control.url = "github:yunusemreyl/hp-wmi-fan-and-backlight-control";
+    hp_wmi_control.url = "github:yunusemreyl/OmenCommandCenterforLinux";
   };
   outputs = { self, nixpkgs, hp_wmi_control, ... }: {
     nixosConfigurations.myhost = nixpkgs.lib.nixosSystem {
@@ -96,8 +96,8 @@ Add the repo as a flake input:
 ### Temporary Install (Testing Only)
 
 ```bash
-git clone https://github.com/yunusemreyl/hp-wmi-fan-and-backlight-control
-cd hp-wmi-fan-and-backlight-control
+git clone https://github.com/yunusemreyl/OmenCommandCenterforLinux
+cd OmenCommandCenterforLinux/driver
 make
 sudo rmmod hp-wmi
 sudo modprobe led_class_multicolor

@@ -21,7 +21,7 @@ from gi.repository import Gtk, Adw, Gdk, GLib, Gio, GdkPixbuf
 # Add parent path for imports
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# Check relative to source (2 levels up -> src/LaptopManagerForHP)
+# Check relative to source (2 levels up -> src/OmenCommandCenterforLinux)
 PROJ_SRC = os.path.abspath(os.path.join(BASE_DIR, "..", ".."))
 
 # Check relative to installed location (1 level up -> /usr/share/hp-manager)
@@ -47,7 +47,7 @@ from pages.settings_page import SettingsPage
 from pages.dashboard_page import DashboardPage
 from pages.keyboard_page import KeyboardPage
 
-APP_VERSION = "1.2.0"
+APP_VERSION = "1.2.1"
 CONFIG_FILE      = os.path.expanduser("~/.config/hp-manager.toml")
 CONFIG_FILE_JSON = os.path.expanduser("~/.config/hp-manager.json")
 

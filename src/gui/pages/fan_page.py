@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Fan & Power Control Page — v1.2.0 with i18n.
+Fan & Power Control Page — v1.2.1 with i18n.
 """
 import os, json, subprocess, shutil, glob, threading, time
 import gi

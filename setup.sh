@@ -11,7 +11,7 @@ DATA_DIR="/usr/share/hp-manager"
 BIN_LINK="/usr/bin/hp-manager"
 UNINSTALLER_LINK="/usr/bin/hp-manager-uninstall"
 CONFIG_DIR="/etc/hp-manager"
-VERSION="1.2.0"
+VERSION="1.2.1"
 
 # Colors
 RED='\033[0;31m'
