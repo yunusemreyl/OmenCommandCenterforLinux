@@ -141,7 +141,7 @@ static const struct thermal_profile_params omen_v1_no_ec_thermal_params = {
  * A generic pointer for the currently-active board's thermal profile
  * parameters.
  */
-static struct thermal_profile_params *active_thermal_profile_params;
+static const struct thermal_profile_params *active_thermal_profile_params;
 
 /*
  * DMI board names of devices that should use the omen specific path for
@@ -426,10 +426,10 @@ static enum platform_profile_option active_platform_profile;
 static bool platform_profile_support;
 static bool zero_insize_support;
 
-static bool force_fan_control_support = true;
+static bool force_fan_control_support;
 module_param(force_fan_control_support, bool, 0444);
 MODULE_PARM_DESC(force_fan_control_support,
-		 "Force support for manual fan control features (default: true)");
+		 "Force support for manual fan control features (default: false)");
 
 static struct rfkill *wifi_rfkill;
 static struct rfkill *bluetooth_rfkill;
@@ -1973,7 +1973,7 @@ static int platform_profile_victus_s_get_ec(
 static int platform_profile_victus_s_set_ec(
 	enum platform_profile_option profile)
 {
-	struct thermal_profile_params *params;
+	const struct thermal_profile_params *params;
 	bool gpu_ctgp_enable, gpu_ppab_enable;
 	/* dstate: 1=100%, 2=50%, 3=25%, 4=12.5% */
 	u8 gpu_dstate;
@@ -2248,12 +2248,14 @@ static int thermal_profile_setup(struct platform_device *device)
 
 	} else if (is_victus_thermal_profile()) {
 		err = platform_profile_victus_get_ec(&active_platform_profile);
-		if (err < 0)
-			return err;
+		if (err < 0) {
+			pr_warn("Failed to read initial thermal profile (%d), defaulting to balanced\n", err);
+			active_platform_profile = PLATFORM_PROFILE_BALANCED;
+		}
 
 		err = platform_profile_victus_set_ec(active_platform_profile);
 		if (err < 0)
-			return err;
+			pr_warn("Failed to apply initial thermal profile (%d), continuing\n", err);
 
 		ops = &platform_profile_victus_ops;
 
