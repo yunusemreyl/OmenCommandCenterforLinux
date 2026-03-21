@@ -506,7 +506,7 @@ class AnimationEngine(threading.Thread):
     # FIX: Separate frame times per mode.
     # static/wave keep 10 FPS; breathing/cycle drop to 5 FPS — imperceptible to human eye.
     FRAME_TIME          = 0.1    # 10 FPS  — wave, fallback
-    FRAME_TIME_SLOW     = 0.333  # 3 FPS   — breathing, cycle (imperceptible to human eye)
+    FRAME_TIME_SLOW     = 0.5    # 2 FPS   — breathing, cycle (imperceptible to human eye)
     # FIX: Skip ACPI write when uniform color changed less than this threshold (0-255).
     # Avoids redundant sysfs calls when phase delta is tiny.
     _COLOR_THRESHOLD    = 5
