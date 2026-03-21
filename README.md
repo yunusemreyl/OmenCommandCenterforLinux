@@ -24,7 +24,7 @@
 - ⌨️ **Touchpad Fix**: Resolved conflicts with touchpad toggle keys (F11/F12). Redundant events are now handled at the kernel level.
 - ⚠️ **MUX Beta**: MUX Switch functionality is in **BETA**. We recommend `envycontrol` or `prime-select` for the most stable experience while we work on further fixes.
 - 📦 **DKMS & Installer**: Resolved `Module already installed` errors during kernel updates and fixed AUR `PKGBUILD` issues.
-- ⚡ **Performance**: Removed background OMEN Key listener thread to reduce idle CPU usage.
+- ⚡ **Performance**: Removed background OMEN Key listener thread to reduce idle CPU usage. Users are encouraged to create a custom shortcut in their Desktop Environment (e.g., binding the OMEN key to `hp-manager`) for a more efficient and responsive experience.
 
 
 ## ✨ Features
@@ -47,6 +47,12 @@
 - Switch between **Hybrid**, **Discrete**, and **Integrated** modes.
 - ⚠️ **Warning**: MUX Switch functionality is currently in **Beta**. We are actively working to resolve remaining "Invalid Argument" (Errno 22) errors on some hardware versions.
 - **Recommendation**: For the most stable GPU switching experience, we currently recommend using dedicated tools like [`envycontrol`](https://github.com/bayasandaa/envycontrol) or `prime-select`.
+
+### ⌨️ Desktop Shortcuts (Recommended)
+ To minimize background resource usage, we have removed the active OMEN Key listener daemon. We highly recommend creating a **Custom Shortcut** in your Desktop Environment settings (GNOME, KDE, etc.):
+ - **Command**: `hp-manager`
+ - **Shortcut Key**: Your **OMEN Key** (detected as `KEY_PROG2`) or any preferred key combinations.
+ This provides a much more responsive experience compared to a background listener thread.
 
 ## 🚀 Installation
 
