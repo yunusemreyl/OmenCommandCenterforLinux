@@ -20,10 +20,11 @@
 
 **New in v1.2.1:**
 
-- 🛠 **Kernel Driver**: Fixed `-22` (EINVAL) probe crash on **8D41** (OMEN MAX 16-ah0xxx) by adding a graceful fallback to `BALANCED` when EC thermal profile offset is unknown. Fixed MUX switch `Invalid Argument` on **8C77** by correcting WMI write buffer size to 128 bytes.
-- 📦 **DKMS & Installer**: Resolved `Module already installed (unversioned module)` errors during kernel updates by implementing full-version DKMS cleanup with distro-agnostic regex parsing. Fixed AUR `PKGBUILD` missing `hp-wmi.c` in DKMS source copy.
-- ⚡ **Performance**: Removed background OMEN Key listener thread from daemon to reduce idle CPU/memory usage. Users can now bind the OMEN key (`KEY_PROG2`) via their DE's shortcut settings.
-- 🧹 **Cleanup**: Removed stale udev rules and systemd service references for the deprecated omen-key-listener from PKGBUILD.
+- 🛠 **Kernel Driver**: Fixed `-22` (EINVAL) probe crash on **8D41** (OMEN MAX 16-ah0xxx). Fixed MUX switch `Invalid Argument` on **8C77** by correcting WMI write buffer size.
+- ⌨️ **Touchpad Fix**: Resolved conflicts with touchpad toggle keys (F11/F12). Redundant events are now handled at the kernel level.
+- ⚠️ **MUX Beta**: MUX Switch functionality is in **BETA**. We recommend `envycontrol` or `prime-select` for the most stable experience while we work on further fixes.
+- 📦 **DKMS & Installer**: Resolved `Module already installed` errors during kernel updates and fixed AUR `PKGBUILD` issues.
+- ⚡ **Performance**: Removed background OMEN Key listener thread to reduce idle CPU usage.
 
 
 ## ✨ Features
