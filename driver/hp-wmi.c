@@ -245,6 +245,10 @@ static const struct dmi_system_id victus_s_thermal_profile_boards[] __initconst 
 		.matches    = {DMI_MATCH(DMI_BOARD_NAME, "8D87")},
 		.driver_data = (void *)&omen_v1_no_ec_thermal_params,
 	},
+	{
+		.matches    = {DMI_MATCH(DMI_BOARD_NAME, "8BA9")},
+		.driver_data = (void *)&omen_v1_thermal_params_omen_ec,
+	},
 	{},
 };
 
@@ -2803,7 +2807,7 @@ static int hp_wmi_setup_fan_settings(struct hp_wmi_hwmon_priv *priv)
 	 * that are not yet in victus_s_thermal_profile_boards but whose
 	 * firmware does support the Victus S GM commands.
 	 */
-	if (is_omen_thermal_profile())
+	if (is_omen_thermal_profile() && !is_victus_s_thermal_profile())
 		return 0;
 
 	if (!is_victus_s_thermal_profile())
