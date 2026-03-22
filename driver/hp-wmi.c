@@ -161,7 +161,7 @@ static const char *const omen_thermal_profile_boards[] = {
 	"88D1", "88D2", "88F4", "88F5", "88F6", "88F7", "88FD", "88FE",
 	"88FF", "8900", "8901", "8902", "8912", "8917", "8918", "8949",
 	"894A", "89EB", "8A15", "8A42", "8BAD", "8C77", "8D41", "8E35",
-	"8E41",
+	"8E41", "8BA9",
 	/*
 	 * FIX: 8D41 (HP Omen Max) added here so is_omen_thermal_profile()
 	 * returns true and the Victus S fan-table query is skipped during
@@ -2357,13 +2357,8 @@ static int __init hp_wmi_bios_setup(struct platform_device *device)
 		return err;
 
 	err = thermal_profile_setup(device);
-	if (err < 0) {
-		struct hp_wmi_hwmon_priv *priv = platform_get_drvdata(device);
-
-		if (priv)
-			cancel_delayed_work_sync(&priv->keep_alive_dwork);
-		return err;
-	}
+	if (err < 0)
+		pr_warn("Failed to set up thermal profile (%d), fan control still available\n", err);
 
 	return 0;
 }
