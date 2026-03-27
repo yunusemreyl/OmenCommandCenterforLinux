@@ -17,6 +17,7 @@ logger = logging.getLogger("hp-manager")
 lock = threading.RLock()
 _cache_lock = threading.Lock()
 state_changed = threading.Event()
+_system_sleeping = threading.Event()  # Flag to pause operations during sleep/wake
 HEX_COLOR_RE = re.compile(r"^[0-9A-F]{6}$")
 VALID_LIGHT_MODES = {"static", "breathing", "cycle", "wave"}
 VALID_DIRECTIONS = {"ltr", "rtl"}
@@ -594,6 +595,11 @@ class AnimationEngine(threading.Thread):
     def run(self):
         logger.info("Animation engine started")
         while self.running:
+            # Pause animation during system sleep to avoid interfering with wake events
+            if _system_sleeping.is_set():
+                time.sleep(0.1)
+                continue
+
             loop_start = time.time()
             with lock:
                 pwr  = bool(state.get("power", True))
@@ -883,6 +889,36 @@ class HPManagerService(object):
         }
 
         threading.Thread(target=self._monitor_loop, daemon=True).start()
+        threading.Thread(target=self._setup_sleep_handler, daemon=True).start()
+
+    def _setup_sleep_handler(self):
+        """Listen to system sleep/wake events via logind."""
+        try:
+            bus = SystemBus()
+            logind = bus.get("org.freedesktop.login1", "/org/freedesktop/login1/Manager")
+            logind.onPropertiesChanged += self._on_sleep_state_changed
+            logger.info("Sleep/wake event handler registered")
+        except Exception as e:
+            logger.warning(f"Failed to register sleep/wake handler: {e}")
+
+    def _on_sleep_state_changed(self, interface_name, changed_properties, invalidated_properties):
+        """Handle system sleep/wake transitions."""
+        try:
+            if "PrepareForSleep" in changed_properties:
+                preparing = changed_properties["PrepareForSleep"]
+                if preparing:
+                    logger.info("System preparing for sleep - pausing daemon operations")
+                    _system_sleeping.set()
+                else:
+                    logger.info("System waking up - resuming daemon operations after delay")
+                    _system_sleeping.clear()
+                    # Give system 2 seconds to fully restore before resuming operations
+                    def _delay_resume():
+                        time.sleep(2.0)
+                        state_changed.set()
+                    threading.Thread(target=_delay_resume, daemon=True).start()
+        except Exception as e:
+            logger.debug(f"Sleep state change handler error: {e}")
 
     def _monitor_loop(self):
         """Background thread — collects sensor data to avoid blocking D-Bus calls."""
@@ -890,6 +926,11 @@ class HPManagerService(object):
         _MUX_POLL_INTERVAL = 30.0
 
         while True:
+            # Skip updates during system sleep to avoid interfering with wake events
+            if _system_sleeping.is_set():
+                time.sleep(0.5)
+                continue
+
             info = self._static_info.copy()
             info["cpu_temp"] = self._get_real_cpu_temp()
             info["gpu_temp"] = self._get_real_gpu_temp()
