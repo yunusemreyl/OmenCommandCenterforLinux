@@ -137,6 +137,12 @@ class FanController:
         if val is None:
             return False
 
+        # Avoid re-writing the same mode: some EC/firmware combos may
+        # briefly reset fan behavior when mode is written redundantly.
+        if self.get_mode() == mode:
+            logger.info(f"Fan mode already {mode}, skipping write")
+            return True
+
         ok = self._sysfs_write("pwm1_enable", val)
 
         if not ok and mode == "max":
