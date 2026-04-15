@@ -18,6 +18,8 @@
 
 **OMEN Command Center for Linux** is a native Linux application designed to unlock the full potential of HP Omen and Victus series laptops. It serves as an open-source alternative to the official OMEN Gaming Hub, providing essential controls in a modern, user-friendly interface.
 
+**Hi everyone, I had to take a break from development due to my midterm week. I'll be back with more development work and exciting new things starting Thursday, April 16th.**
+
 **New in v1.2.3:**
 
 - 🌪️ **Fan/Platform Compatibility**: Improved board handling for OMEN MAX / 8D87-class devices by aligning Victus-S parameter paths with confirmed working behavior.
