@@ -126,7 +126,31 @@ class FanController:
         return self.max_speeds.get(fan_num, 6000)
 
     def get_current_speed(self, fan_num):
-        return self._sysfs_read(f"fan{fan_num}_input")
+        speed = self._sysfs_read(f"fan{fan_num}_input")
+        if speed == 0:
+            speed = self._try_fan_speed_fallback(fan_num)
+        return speed
+
+    def _try_fan_speed_fallback(self, fan_num):
+        """Try alternative hwmon paths when the primary one returns 0 RPM."""
+        # Search other hwmon devices for fan speed data
+        for path in glob.glob("/sys/class/hwmon/hwmon*/fan*_input"):
+            try:
+                basename = os.path.basename(path)
+                hwmon_dir = os.path.dirname(path)
+                # Skip our own hwmon (already tried)
+                if hwmon_dir == self.hwmon_path:
+                    continue
+                # Match fan number
+                idx = basename.replace("fan", "").replace("_input", "")
+                if idx == str(fan_num):
+                    with open(path) as f:
+                        val = int(f.read().strip())
+                    if val > 0:
+                        return val
+            except Exception:
+                continue
+        return 0
 
     def get_target_speed(self, fan_num):
         return self._sysfs_read(f"fan{fan_num}_target")

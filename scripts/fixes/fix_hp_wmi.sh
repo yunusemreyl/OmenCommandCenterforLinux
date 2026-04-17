@@ -18,7 +18,7 @@ echo -e "\033[1;33m--- Restoring Original HP-WMI Driver ---\033[0m"
 # Uninstall custom DKMS module if it exists
 if command -v dkms &>/dev/null; then
     # Try to grab version from dkms.conf, fallback if not found
-    DKMS_VER=$(grep -oP 'PACKAGE_VERSION="\K[^"]+' "$REPO_ROOT/driver/dkms.conf" 2>/dev/null || echo "1.2.3")
+    DKMS_VER=$(grep -oP 'PACKAGE_VERSION="\K[^"]+' "$REPO_ROOT/driver/dkms.conf" 2>/dev/null || echo "1.2.4")
     if dkms status "hp-rgb-lighting/$DKMS_VER" 2>/dev/null | grep -q "added"; then
         echo -e "[i] Removing custom hp-wmi from DKMS..."
         dkms remove -m "hp-rgb-lighting" -v "$DKMS_VER" --all 2>/dev/null || true

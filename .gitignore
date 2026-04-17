@@ -25,3 +25,4 @@ driver/hp-wmi.kmod
 driver/.tmp_versions/
 driver/.*.cmd
 /tmp/
+issues/

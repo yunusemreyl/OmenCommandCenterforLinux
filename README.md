@@ -1,5 +1,5 @@
 
- # OMEN Command Center for Linux v1.2.3 #
+ # OMEN Command Center for Linux v1.2.4 #
 <p align="center">
   <img src="images/omenapplogo.png" alt="Logo" width="250">
 
@@ -18,17 +18,21 @@
 
 **OMEN Command Center for Linux** is a native Linux application designed to unlock the full potential of HP Omen and Victus series laptops. It serves as an open-source alternative to the official OMEN Gaming Hub, providing essential controls in a modern, user-friendly interface.
 
-**Hi everyone, I had to take a break from development due to my midterm week. I'll be back with more development work and exciting new things starting Thursday, April 16th.**
+**New in v1.2.4:**
 
-**New in v1.2.3:**
+- 🧰 **Kernel Synchronization**: Synced `hp-wmi` driver with the mainline Linux kernel. Added missing board IDs (`8A4D`, `8BCA`, `8C76`) for complete compatibility.
+- 🧪 **MUX Switch Fix (Errno 22 Mitigation)**: Resolved `Invalid Argument (22)` errors during MUX switching on newer models by implementing a 4-byte payload fallback in the WMI query.
+- ⌨️ **KDE Omen Key Shortcut**: The OMEN Key desktop shortcut now activates instantly on KDE Plasma (e.g., CachyOS) without requiring a reboot, using `qdbus` to reload global shortcuts.
+- 🖱️ **Touchpad Keymap**: Restored touchpad toggle keymap support (`KEY_TOUCHPAD_OFF` / `KEY_TOUCHPAD_ON`).
+
+**Previous in v1.2.3:**
 
 - 🌪️ **Fan/Platform Compatibility**: Improved board handling for OMEN MAX / 8D87-class devices by aligning Victus-S parameter paths with confirmed working behavior.
-- 🛠 **Installer Reliability**: DKMS install flow improved to reduce repeat-install conflicts and avoid early stock driver backup before successful build/install.
-- 🧰 **Recovery Improvements**: Restore tooling now checks both `/lib/modules` and `/usr/lib/modules`, improving Arch/CachyOS recovery paths.
-- 🎮 **MUX Backend Stability**: Backend selection is now configurable from Settings, with auto-priority favoring external tools (`envycontrol`, `supergfxctl`, `prime-select`) before HP WMI direct mode.
-- 🔐 **Privileged MUX Commands**: MUX apply actions use interactive authentication prompts for privileged backend commands.
-- 🧪 **Errno 22 Mitigation**: HP WMI `graphics_mode` writes now try multiple payload formats to reduce model-specific `Invalid Argument (22)` failures.
-- 🌈 **Wave Effect Optimization**: Wave now shifts smoothly across your selected keyboard colors (instead of HSV rainbow), and applies thresholded zone writes for significantly lower CPU usage under animation load.
+- 🛠 **Installer Reliability**: DKMS install flow improved to reduce repeat-install conflicts.
+- 🧰 **Recovery Improvements**: Restore tooling now checks both `/lib/modules` and `/usr/lib/modules`.
+- 🎮 **MUX Backend Stability**: Backend selection is now configurable from Settings, with auto-priority favoring external tools.
+- 🔐 **Privileged MUX Commands**: MUX apply actions use interactive authentication prompts.
+- 🌈 **Wave Effect Optimization**: Wave now shifts smoothly across your selected keyboard colors.
 
 
 ## ✨ Features

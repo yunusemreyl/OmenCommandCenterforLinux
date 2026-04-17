@@ -123,7 +123,7 @@ static const struct thermal_profile_params omen_v1_thermal_params = {
 	.ec_tp_offset = HP_VICTUS_S_EC_THERMAL_PROFILE_OFFSET,
 };
 
-static const struct thermal_profile_params omen_v1_thermal_params_omen_ec = {
+static const struct thermal_profile_params omen_v1_legacy_thermal_params = {
 	.performance  = HP_OMEN_V1_THERMAL_PROFILE_PERFORMANCE,
 	.balanced     = HP_OMEN_V1_THERMAL_PROFILE_DEFAULT,
 	.low_power    = HP_OMEN_V1_THERMAL_PROFILE_DEFAULT,
@@ -160,12 +160,17 @@ static const char *const omen_thermal_profile_boards[] = {
 	"878A", "878B", "878C", "87B5", "886B", "886C", "88C8", "88CB",
 	"88D1", "88D2", "88F4", "88F5", "88F6", "88F7", "88FD", "88FE",
 	"88FF", "8900", "8901", "8902", "8912", "8917", "8918", "8949",
-	"894A", "89EB", "8A15", "8A42", "8BAD", "8C77", "8D41", "8E35",
-	"8E41", "8BA9",
+	"894A", "89EB", "8A15", "8A42", "8BAD", "8BAC", "8C77", "8D41",
+	"8E35", "8E41", "8BA9",
 	/*
 	 * FIX: 8D41 (HP Omen Max) added here so is_omen_thermal_profile()
 	 * returns true and the Victus S fan-table query is skipped during
 	 * probe, preventing a spurious -EINVAL/-22 failure.
+	 *
+	 * FIX: 8BAC (HP Omen 16-wf0xxx) added so is_omen_thermal_profile()
+	 * returns true.  The ACPI tables on this board have a broken GETB
+	 * helper (CreateField with zero length), but adding the board here
+	 * enables the WMI-based thermal profile path.
 	 */
 };
 
@@ -198,12 +203,20 @@ static const char *const victus_thermal_profile_boards[] = {
 /* DMI board names of Victus 16-r and Victus 16-s laptops */
 static const struct dmi_system_id victus_s_thermal_profile_boards[] __initconst = {
 	{
+		.matches    = {DMI_MATCH(DMI_BOARD_NAME, "8A4D")},
+		.driver_data = (void *)&omen_v1_legacy_thermal_params,
+	},
+	{
 		.matches    = {DMI_MATCH(DMI_BOARD_NAME, "8BAB")},
 		.driver_data = (void *)&omen_v1_thermal_params,
 	},
 	{
 		.matches    = {DMI_MATCH(DMI_BOARD_NAME, "8BBE")},
 		.driver_data = (void *)&victus_s_thermal_params,
+	},
+	{
+		.matches    = {DMI_MATCH(DMI_BOARD_NAME, "8BCA")},
+		.driver_data = (void *)&omen_v1_thermal_params,
 	},
 	{
 		.matches    = {DMI_MATCH(DMI_BOARD_NAME, "8BCD")},
@@ -218,8 +231,12 @@ static const struct dmi_system_id victus_s_thermal_profile_boards[] __initconst 
 		.driver_data = (void *)&victus_s_thermal_params,
 	},
 	{
+		.matches    = {DMI_MATCH(DMI_BOARD_NAME, "8C76")},
+		.driver_data = (void *)&omen_v1_thermal_params,
+	},
+	{
 		.matches    = {DMI_MATCH(DMI_BOARD_NAME, "8C77")},
-		.driver_data = (void *)&omen_v1_thermal_params_omen_ec,
+		.driver_data = (void *)&omen_v1_legacy_thermal_params,
 	},
 	{
 		.matches    = {DMI_MATCH(DMI_BOARD_NAME, "8C78")},
@@ -239,7 +256,7 @@ static const struct dmi_system_id victus_s_thermal_profile_boards[] __initconst 
 	},
 	{
 		.matches    = {DMI_MATCH(DMI_BOARD_NAME, "8D41")},
-		.driver_data = (void *)&omen_v1_thermal_params_omen_ec,
+		.driver_data = (void *)&omen_v1_legacy_thermal_params,
 	},
 	{
 		.matches    = {DMI_MATCH(DMI_BOARD_NAME, "8D87")},
@@ -247,7 +264,21 @@ static const struct dmi_system_id victus_s_thermal_profile_boards[] __initconst 
 	},
 	{
 		.matches    = {DMI_MATCH(DMI_BOARD_NAME, "8BA9")},
-		.driver_data = (void *)&omen_v1_thermal_params_omen_ec,
+		.driver_data = (void *)&omen_v1_legacy_thermal_params,
+	},
+	{
+		/*
+		 * 8BAC: HP Omen 16-wf0xxx.  ACPI tables have a broken GETB
+		 * helper (CreateField with zero length) that aborts all WMID
+		 * methods.  Use no-EC params to skip EC thermal profile reads.
+		 */
+		.matches    = {DMI_MATCH(DMI_BOARD_NAME, "8BAC")},
+		.driver_data = (void *)&omen_v1_no_ec_thermal_params,
+	},
+	{
+		/* 8BC2: Victus by HP Gaming Laptop 16-r0xxx */
+		.matches    = {DMI_MATCH(DMI_BOARD_NAME, "8BC2")},
+		.driver_data = (void *)&victus_s_thermal_params,
 	},
 	{},
 };
@@ -415,8 +446,8 @@ static const struct key_entry hp_wmi_keymap[] = {
 	{KE_KEY,    0x21a5,  {KEY_PROG2}},    /* HP Omen Key */
 	{KE_KEY,    0x21a7,  {KEY_FN_ESC}},
 	{KE_KEY,    0x21a8,  {KEY_PROG2}},    /* HP Envy x360 programmable key */
-	{KE_IGNORE, 0x21a9,  {}},             /* Touchpad Off */
-	{KE_IGNORE, 0x121a9, {}},             /* Touchpad On  */
+	{KE_KEY,    0x21a9,  {KEY_TOUCHPAD_OFF}},             /* Touchpad Off */
+	{KE_KEY,    0x121a9, {KEY_TOUCHPAD_ON}},              /* Touchpad On  */
 	{KE_KEY,    0x231b,  {KEY_HELP}},
 	{KE_END,    0}
 };
@@ -1160,6 +1191,7 @@ static ssize_t graphics_mode_store(struct device *dev,
 				   const char *buf, size_t count)
 {
 	u8 mode_buf_small[1];
+	u32 mode_buf_u32;
 	u8 mode_buf_padded[128] = {0};
 	u32 tmp;
 	int ret;
@@ -1173,15 +1205,19 @@ static ssize_t graphics_mode_store(struct device *dev,
 		return -EINVAL;
 
 	mode_buf_small[0] = (u8)tmp;
+	mode_buf_u32 = tmp;
 	mode_buf_padded[0] = (u8)tmp;
 
 	/*
 	 * Firmware is inconsistent across models: some expect a compact payload
-	 * (1 byte), others require a padded buffer.  Try compact first, then
-	 * retry with padded data to avoid spurious errno 22 on supported boards.
+	 * (1 byte), some expect 4 bytes (u32), others require a padded buffer.
+	 * Try compact first, then 4 bytes, then padded.
 	 */
 	ret = hp_wmi_perform_query(HPWMI_SYSTEM_DEVICE_MODE, HPWMI_WRITE,
 				   mode_buf_small, sizeof(mode_buf_small), 0);
+	if (ret == HPWMI_RET_INVALID_PARAMETERS || ret == -EINVAL)
+		ret = hp_wmi_perform_query(HPWMI_SYSTEM_DEVICE_MODE, HPWMI_WRITE,
+					   &mode_buf_u32, sizeof(mode_buf_u32), 0);
 	if (ret == HPWMI_RET_INVALID_PARAMETERS || ret == -EINVAL)
 		ret = hp_wmi_perform_query(HPWMI_SYSTEM_DEVICE_MODE, HPWMI_WRITE,
 					   mode_buf_padded, sizeof(mode_buf_padded), 0);

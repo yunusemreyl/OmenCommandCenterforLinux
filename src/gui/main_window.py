@@ -47,7 +47,7 @@ from pages.settings_page import SettingsPage
 from pages.dashboard_page import DashboardPage
 from pages.keyboard_page import KeyboardPage
 
-APP_VERSION = "1.2.3"
+APP_VERSION = "1.2.4"
 CONFIG_FILE      = os.path.expanduser("~/.config/hp-manager.toml")
 CONFIG_FILE_JSON = os.path.expanduser("~/.config/hp-manager.json")
 
