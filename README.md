@@ -14,6 +14,7 @@
 </p>
 <p align="center">
   <img src="screenshots/settings.png" alt="Settings" width="45%">
+  <img src="screenshots/performance.png" alt="Performance" width="45%">
 </p>
 
 **OMEN Command Center for Linux** is a native Linux application designed to unlock the full potential of HP Omen and Victus series laptops. It serves as an open-source alternative to the official OMEN Gaming Hub, providing essential controls in a modern, user-friendly interface.
