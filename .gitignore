@@ -19,6 +19,7 @@ dist/
 driver/*.ko
 driver/*.o
 driver/*.mod.c
+driver/*.mod
 driver/*.symvers
 driver/*.order
 driver/hp-wmi.kmod
