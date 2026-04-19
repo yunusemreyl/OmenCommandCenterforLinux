@@ -82,7 +82,8 @@ cd OmenCommandCenterforLinux
 chmod +x setup.sh
 sudo ./setup.sh install
 ```
-Installation Warning⚠️: We recommend restart your computer after installation.
+Note: For compatibility with older documentation, `sudo ./install.sh` redirects to `setup.sh install`.
+Installation Warning ⚠️: We recommend restarting your computer after installation.
 
 ### Script Layout
 
