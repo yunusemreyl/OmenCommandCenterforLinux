@@ -6,7 +6,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 if [ ! -x "$SCRIPT_DIR/setup.sh" ]; then
-    echo "Error: setup.sh not found in $SCRIPT_DIR" >&2
+    echo "Error: setup.sh not found or not executable in $SCRIPT_DIR" >&2
     exit 1
 fi
 
