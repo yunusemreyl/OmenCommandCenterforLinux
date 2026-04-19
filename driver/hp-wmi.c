@@ -2874,6 +2874,10 @@ static int hp_wmi_setup_fan_settings(struct hp_wmi_hwmon_priv *priv)
 		 */
 		cpu_rpm = hp_wmi_get_fan_speed_victus_s(CPU_FAN);
 		gpu_rpm = hp_wmi_get_fan_speed_victus_s(GPU_FAN);
+		/*
+		 * Expose fallback controls only when both fan channels are
+		 * readable, matching the two-channel hwmon interface below.
+		 */
 		if (cpu_rpm >= 0 && gpu_rpm >= 0) {
 			pr_info("Fan table query unsupported, using fallback fan speed probing with safe limits\n");
 			priv->min_rpm             = 0;
