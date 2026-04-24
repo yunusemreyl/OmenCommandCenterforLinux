@@ -2929,8 +2929,25 @@ static int hp_wmi_setup_fan_settings(struct hp_wmi_hwmon_priv *priv)
 	if (fan_table->header.num_entries == 0 ||
 	    sizeof(struct victus_s_fan_table_header) +
 	    sizeof(struct victus_s_fan_table_entry) *
-	    fan_table->header.num_entries > sizeof(fan_data))
-		return -EINVAL;
+	    fan_table->header.num_entries > sizeof(fan_data)) {
+		if (!force_fan_control_support) {
+			pr_info("Malformed fan table on this board, manual fan control unavailable\n");
+			return 0;
+		}
+
+		pr_warn("Malformed fan table, falling back to 5000 RPM safe limits\n");
+		priv->min_rpm             = 0;
+		/* firmware uses units of 100 RPM (50 == 5000 RPM) */
+		priv->max_rpm             = VICTUS_S_FALLBACK_MAX_RPM_FW;
+		priv->gpu_delta           = 0;
+		priv->max_rpms[0]         = VICTUS_S_FALLBACK_MAX_RPM;
+		priv->max_rpms[1]         = VICTUS_S_FALLBACK_MAX_RPM;
+		priv->target_rpms[0]      = 0;
+		priv->target_rpms[1]      = 0;
+		priv->prev_mode           = -1;
+		priv->fan_speed_available = true;
+		return 0;
+	}
 
 	min_rpm = fan_table->entries[0].cpu_rpm;
 	max_rpm = fan_table->entries[fan_table->header.num_entries - 1].cpu_rpm;
