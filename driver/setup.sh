@@ -25,9 +25,20 @@ MOK_DIR="/var/lib/hp-manager/mok"
 # Kernel 7.0+ has Omen/Victus fan control in the stock hp-wmi module.
 KVER_MAJOR=$(uname -r | cut -d. -f1)
 KVER_MINOR=$(uname -r | cut -d. -f2)
+BOARD_NAME=$(cat /sys/devices/virtual/dmi/id/board_name 2>/dev/null | tr '[:lower:]' '[:upper:]' || echo "")
+FORCE_CUSTOM_HPWMI=false
+
+# Some boards still require the patched hp-wmi path even on kernel 7.0+.
+case "$BOARD_NAME" in
+    8D41) FORCE_CUSTOM_HPWMI=true ;; # OMEN Max 16
+esac
+
 STOCK_FAN_SUPPORT=false
 if [ "$KVER_MAJOR" -gt 7 ] || { [ "$KVER_MAJOR" -eq 7 ] && [ "$KVER_MINOR" -ge 0 ]; }; then
     STOCK_FAN_SUPPORT=true
+fi
+if $FORCE_CUSTOM_HPWMI; then
+    STOCK_FAN_SUPPORT=false
 fi
 
 info()  { echo -e "${BLUE}[INFO]${NC} $*"; }
@@ -177,6 +188,10 @@ do_install() {
 
     detect_distro
     install_deps
+
+    if $FORCE_CUSTOM_HPWMI; then
+        warn "Board ${BOARD_NAME:-unknown} detected — forcing custom hp-wmi install path on kernel $(uname -r)."
+    fi
 
     # Detect Clang-built kernel and set LLVM=1 automatically
     if grep -iq "clang" /proc/version; then

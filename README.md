@@ -95,10 +95,14 @@ Maintenance scripts are now organized under:
 
 Legacy entry points (`fix_hp_wmi.sh`, `fix_omen.sh`, `dump_log.sh`, `test_nvidia.py`) are kept at the repository root as compatibility wrappers.
 
+For OMEN Max 16 / hp-wmi probe troubleshooting, use:
+- `scripts/tests/test_hp_wmi_raw_payload.sh`
+
 The installer will automatically:
 1. Detect your package manager and install dependencies.
 2. Detect your kernel version and install the appropriate driver:
    - **Kernel ≥ 7.0**: Only installs `hp-rgb-lighting` (RGB). Fan control is provided by the stock `hp-wmi` module.
+     - **Exception**: OMEN Max 16 board `8D41` is forced to the custom `hp-wmi` path due stock probe incompatibility.
    - **Kernel < 7.0**: Installs both the custom `hp-wmi` driver (backported) and `hp-rgb-lighting`.
 3. Install the daemon and GUI components.
 4. Set up system services.
