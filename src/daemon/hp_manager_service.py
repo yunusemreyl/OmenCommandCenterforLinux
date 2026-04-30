@@ -570,7 +570,9 @@ class MUXController:
                     return "OK_REBOOT_REQUIRED"
 
             elif self.backend == "envycontrol" and self.envycontrol:
-                subprocess.run([self.envycontrol, "-s", mode], check=True, timeout=10)
+                m = {"hybrid": "hybrid", "discrete": "nvidia",
+                     "integrated": "integrated"}.get(mode, mode)
+                subprocess.run([self.envycontrol, "-s", m], check=True, timeout=10)
                 self._cached_mode = mode
                 self._last_check  = time.time()
                 return "OK"
