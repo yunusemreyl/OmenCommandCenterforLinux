@@ -42,7 +42,6 @@ def _get_nvidia_info():
 
 # Human-readable backend labels
 _BACKEND_LABELS = {
-    "bios":         "HP WMI (direct)",
     "envycontrol":  "envycontrol",
     "supergfxctl":  "supergfxctl",
     "prime-select": "prime-select",

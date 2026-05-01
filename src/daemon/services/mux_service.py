@@ -13,9 +13,6 @@ from common.dbus_helpers import run_service, system_sleeping
 logger = setup_logging("mux")
 
 VALID_GPU_MODES = {"hybrid", "discrete", "integrated"}
-_BIOS_MUX_PATH = "/sys/devices/platform/hp-wmi/graphics_mode"
-_BIOS_MUX_READ = {0: "integrated", 1: "discrete", 2: "hybrid"}
-_BIOS_MUX_WRITE = {"integrated": 0, "discrete": 1, "hybrid": 2}
 
 
 class MUXController:
@@ -71,9 +68,7 @@ class MUXController:
             return self._cached_mode
         mode = "unknown"
         try:
-            if self.backend == "bios":
-                mode = _BIOS_MUX_READ.get(sysfs_read(_BIOS_MUX_PATH), "unknown")
-            elif self.backend == "envycontrol" and self.envycontrol:
+            if self.backend == "envycontrol" and self.envycontrol:
                 mode = subprocess.check_output([self.envycontrol, "--query"], stderr=subprocess.STDOUT, timeout=5).decode().strip().lower()
             elif self.backend == "supergfxctl" and self.supergfxctl:
                 mode = subprocess.check_output([self.supergfxctl, "-g"], stderr=subprocess.STDOUT, timeout=5).decode().strip().lower()
@@ -87,20 +82,7 @@ class MUXController:
 
     def set_mode(self, mode):
         try:
-            if self.backend == "bios":
-                val = _BIOS_MUX_WRITE.get(mode)
-                if val is None: return f"Error: unknown mode '{mode}'"
-                sysfs_write(_BIOS_MUX_PATH, val)
-                time.sleep(0.1)
-                readback = sysfs_read(_BIOS_MUX_PATH, -1)
-                self._cached_mode = mode
-                self._last_check = time.time()
-                if readback == val:
-                    logger.info("MUX set to '%s' via BIOS (no reboot needed)", mode)
-                    return "OK"
-                logger.info("MUX set to '%s' via BIOS (reboot required)", mode)
-                return "OK_REBOOT_REQUIRED"
-            elif self.backend == "envycontrol" and self.envycontrol:
+            if self.backend == "envycontrol" and self.envycontrol:
                 m = {"hybrid":"hybrid","discrete":"nvidia","integrated":"integrated"}.get(mode,mode)
                 subprocess.run([self.envycontrol, "-s", m], check=True, timeout=10)
             elif self.backend == "supergfxctl" and self.supergfxctl:
