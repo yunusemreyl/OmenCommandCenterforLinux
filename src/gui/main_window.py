@@ -23,7 +23,7 @@ except ValueError:
     Adw = None
     HAS_ADW = False
 
-from gi.repository import Gtk, Gdk, GLib, Gio, GdkPixbuf
+from gi.repository import Gtk, Gdk, GLib, Gio, GdkPixbuf, Pango
 import cairo
 
 # Add parent path for imports
@@ -2300,7 +2300,7 @@ class HPManagerWindow(Gtk.ApplicationWindow):
         subtitle = Gtk.Label(label=subtitle_text, xalign=0)
         subtitle.add_css_class("launcher-card-sub")
         subtitle.set_wrap(True)
-        subtitle.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
+        subtitle.set_wrap_mode(Pango.WrapMode.WORD_CHAR)
         text_box.append(subtitle)
 
         column.append(text_box)
