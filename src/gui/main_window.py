@@ -2754,8 +2754,9 @@ class HPManagerWindow(Gtk.ApplicationWindow):
             return True
 
     def _fetch_launcher_metrics(self):
+        services = getattr(self, "services", {})
         data = {
-            "ok": bool(self.service),
+            "ok": bool(services and any(services.values())),
             "sys": {},
             "fan": {},
             "pp": {},
@@ -2765,25 +2766,28 @@ class HPManagerWindow(Gtk.ApplicationWindow):
             "gpu_pct": None,
         }
         try:
-            if self.service:
+            if services.get("platform"):
                 try:
-                    data["sys"] = json.loads(self.service.GetSystemInfo())
+                    data["sys"] = json.loads(services["platform"].GetSystemInfo())
                 except Exception:
                     pass
                 try:
-                    data["fan"] = json.loads(self.service.GetFanInfo())
+                    data["light"] = json.loads(services["platform"].GetState())
                 except Exception:
                     pass
+            if services.get("fan"):
                 try:
-                    data["pp"] = json.loads(self.service.GetPowerProfile())
+                    data["fan"] = json.loads(services["fan"].GetFanInfo())
                 except Exception:
                     pass
+            if services.get("power"):
                 try:
-                    data["light"] = json.loads(self.service.GetState())
+                    data["pp"] = json.loads(services["power"].GetPowerProfile())
                 except Exception:
                     pass
+            if services.get("mux"):
                 try:
-                    data["gpu"] = json.loads(self.service.GetGpuInfo())
+                    data["gpu"] = json.loads(services["mux"].GetGpuInfo())
                 except Exception:
                     pass
 

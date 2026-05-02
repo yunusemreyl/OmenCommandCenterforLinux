@@ -769,13 +769,15 @@ class SettingsPage(Gtk.Box):
 
         # 7. Service Status
         out.append("\nService Status:")
-        try:
-            status = subprocess.check_output(["systemctl", "status", "com.yyl.hpmanager.service"], stderr=subprocess.STDOUT, timeout=2).decode(errors='ignore')
-            lines = status.splitlines()
-            for i in range(min(5, len(lines))):
-                out.append(f"  {lines[i].strip()}")
-        except Exception as e:
-            out.append(f"  Error: {e}")
+        for svc in ("fan", "rgb", "power", "mux", "platform"):
+            unit = f"hpm-{svc}.service"
+            try:
+                status = subprocess.check_output(["systemctl", "status", unit], stderr=subprocess.STDOUT, timeout=2).decode(errors='ignore')
+                lines = status.splitlines()
+                for i in range(min(3, len(lines))):
+                    out.append(f"  {lines[i].strip()}")
+            except Exception as e:
+                out.append(f"  {unit}: Error: {e}")
 
         # 8. Kernel Logs (dmesg)
         out.append("\nKernel Logs:")
