@@ -5,7 +5,26 @@ This module is imported by all pages — never run as __main__,
 so there's only one copy of active_lang in memory.
 """
 
-active_lang = "tr"
+import os as _os
+
+
+def _detect_system_lang():
+    """Detect the system language from environment variables."""
+    for var in ("LC_MESSAGES", "LC_ALL", "LANG", "LANGUAGE"):
+        val = _os.environ.get(var, "")
+        if val:
+            code = val.split(".")[0].split("_")[0].lower()
+            if code.startswith("tr"):
+                return "tr"
+            if code.startswith("en"):
+                return "en"
+            # If it's a known code but not tr/en, default to English
+            if code:
+                return "en"
+    return "en"
+
+
+active_lang = _detect_system_lang()
 
 TRANSLATIONS = {
     "tr": {
@@ -224,20 +243,23 @@ TRANSLATIONS = {
 
 def T(key):
     """Get translation for key using current active_lang."""
-    return TRANSLATIONS.get(active_lang, TRANSLATIONS["tr"]).get(key, key)
+    return TRANSLATIONS.get(active_lang, TRANSLATIONS["en"]).get(key, key)
 
 
 def set_lang(lang):
     """Set the active language globally."""
     global active_lang
     normalized = str(lang or "").strip().lower()
+    if not normalized:
+        # No explicit language — keep current (auto-detected) setting
+        return
     if normalized.startswith("tr") or "türk" in normalized or "turk" in normalized:
         active_lang = "tr"
         return
     if normalized.startswith("en") or "english" in normalized:
         active_lang = "en"
         return
-    active_lang = normalized if normalized in TRANSLATIONS else "tr"
+    active_lang = normalized if normalized in TRANSLATIONS else _detect_system_lang()
 
 
 def get_lang():

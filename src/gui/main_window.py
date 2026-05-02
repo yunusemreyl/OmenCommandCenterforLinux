@@ -3,7 +3,7 @@
 OMEN Command Center for Linux - Main Window
 Launcher-style home menu with page selection cards.
 """
-import sys, os, json, math, subprocess, shutil, threading
+import sys, os, json, math, subprocess, shutil, threading, concurrent.futures
 
 try:
     import tomllib  # Python 3.11+
@@ -59,6 +59,21 @@ APP_VERSION = "1.3.6"
 CONFIG_FILE      = os.path.expanduser("~/.config/hp-manager.toml")
 CONFIG_FILE_JSON = os.path.expanduser("~/.config/hp-manager.json")
 _LAUNCHER_REFRESH_MS = 5000
+_DBUS_TIMEOUT = 5  # seconds — prevents D-Bus hangs from freezing app
+_dbus_pool = concurrent.futures.ThreadPoolExecutor(max_workers=2, thread_name_prefix="mw-dbus")
+
+
+def _dbus_call(fn, *args, timeout=_DBUS_TIMEOUT):
+    """Run a D-Bus proxy call with a timeout to avoid indefinite blocking."""
+    fut = _dbus_pool.submit(fn, *args)
+    try:
+        return fut.result(timeout=timeout)
+    except concurrent.futures.TimeoutError:
+        print(f"⚠ D-Bus call timed out after {timeout}s: {fn}")
+        return None
+    except Exception as e:
+        print(f"⚠ D-Bus call failed: {e}")
+        return None
 
 # ── Translations (centralised in i18n.py) ────────────────────────────────────
 from i18n import T, set_lang, get_lang
@@ -329,8 +344,7 @@ class HPManagerWindow(Gtk.ApplicationWindow):
             image_path = os.path.join(IMAGES_DIR, image_file)
             if os.path.exists(image_path):
                 try:
-                    pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(image_path, size, size, True)
-                    texture = Gdk.Texture.new_for_pixbuf(pixbuf)
+                    texture = Gdk.Texture.new_from_filename(image_path)
                     image = Gtk.Image.new_from_paintable(texture)
                     image.set_pixel_size(size)
                     return image
@@ -426,13 +440,13 @@ class HPManagerWindow(Gtk.ApplicationWindow):
                     data = tomllib.load(f)
                 self.app_theme = data.get("theme", "dark")
                 self.temp_unit = data.get("temp_unit", "C")
-                set_lang(data.get("lang", "tr"))
+                set_lang(data.get("lang"))
             elif os.path.exists(CONFIG_FILE_JSON):
                 with open(CONFIG_FILE_JSON) as f:
                     data = json.load(f)
                 self.app_theme = data.get("theme", "dark")
                 self.temp_unit = data.get("temp_unit", "C")
-                set_lang(data.get("lang", "tr"))
+                set_lang(data.get("lang"))
                 self._save_config()
             # If only a TOML file exists but tomllib is unavailable, skip silently.
         except Exception:
@@ -2173,12 +2187,7 @@ class HPManagerWindow(Gtk.ApplicationWindow):
                 height = max(height, int(self._root_shell.get_height() or 0))
             except Exception:
                 pass
-            try:
-                alloc = self._root_shell.get_allocation()
-                width = max(width, int(alloc.width or 0))
-                height = max(height, int(alloc.height or 0))
-            except Exception:
-                pass
+
         try:
             width = max(width, int(self.get_width() or 0))
             height = max(height, int(self.get_height() or 0))
@@ -2583,8 +2592,8 @@ class HPManagerWindow(Gtk.ApplicationWindow):
         logo_path = os.path.join(IMAGES_DIR, "omenapplogo.png")
         if hasattr(self, 'logo_icon'):
             if os.path.exists(logo_path):
-                pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(logo_path, 48, 48, True)
-                self.logo_icon.set_from_paintable(Gdk.Texture.new_for_pixbuf(pixbuf))
+                texture = Gdk.Texture.new_from_filename(logo_path)
+                self.logo_icon.set_from_paintable(texture)
             else:
                 self.logo_icon.set_from_icon_name("computer-symbolic")
 
@@ -2770,27 +2779,37 @@ class HPManagerWindow(Gtk.ApplicationWindow):
             if services:
                 try:
                     if services.get("platform"):
-                        data["sys"] = json.loads(services["platform"].GetSystemInfo())
+                        raw = _dbus_call(services["platform"].GetSystemInfo)
+                        if raw is not None:
+                            data["sys"] = json.loads(raw)
                 except Exception:
                     pass
                 try:
                     if services.get("fan"):
-                        data["fan"] = json.loads(services["fan"].GetFanInfo())
+                        raw = _dbus_call(services["fan"].GetFanInfo)
+                        if raw is not None:
+                            data["fan"] = json.loads(raw)
                 except Exception:
                     pass
                 try:
                     if services.get("power"):
-                        data["pp"] = json.loads(services["power"].GetPowerProfile())
+                        raw = _dbus_call(services["power"].GetPowerProfile)
+                        if raw is not None:
+                            data["pp"] = json.loads(raw)
                 except Exception:
                     pass
                 try:
                     if services.get("rgb"):
-                        data["light"] = json.loads(services["rgb"].GetState())
+                        raw = _dbus_call(services["rgb"].GetState)
+                        if raw is not None:
+                            data["light"] = json.loads(raw)
                 except Exception:
                     pass
                 try:
                     if services.get("mux"):
-                        data["gpu"] = json.loads(services["mux"].GetGpuInfo())
+                        raw = _dbus_call(services["mux"].GetGpuInfo)
+                        if raw is not None:
+                            data["gpu"] = json.loads(raw)
                 except Exception:
                     pass
 

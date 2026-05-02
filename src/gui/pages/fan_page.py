@@ -2,7 +2,7 @@
 """
 Fan & Power Control Page — v1.3.6 with i18n.
 """
-import os, json, subprocess, shutil, glob, threading, time
+import os, json, subprocess, shutil, glob, threading, time, concurrent.futures
 import gi
 gi.require_version('Gtk', '4.0')
 from gi.repository import Gtk, GLib, Gdk, GObject
@@ -18,6 +18,21 @@ import math
 
 DEFAULT_MODE_SYNC_DELAY_MS = 1500
 CUSTOM_MODE_SYNC_DELAY_MS = 3000
+_DBUS_TIMEOUT = 5  # seconds — prevents D-Bus hangs from freezing app
+_dbus_pool = concurrent.futures.ThreadPoolExecutor(max_workers=2, thread_name_prefix="dbus")
+
+
+def _dbus_call(fn, *args, timeout=_DBUS_TIMEOUT):
+    """Run a D-Bus proxy call with a timeout to avoid indefinite blocking."""
+    fut = _dbus_pool.submit(fn, *args)
+    try:
+        return fut.result(timeout=timeout)
+    except concurrent.futures.TimeoutError:
+        print(f"⚠ D-Bus call timed out after {timeout}s: {fn}")
+        return None
+    except Exception as e:
+        print(f"⚠ D-Bus call failed: {e}")
+        return None
 
 class FanSparkline(Gtk.DrawingArea):
     def __init__(self, color, history_len=60):
@@ -286,17 +301,25 @@ class SystemMonitor(threading.Thread):
 
                 if platform_svc:
                     try:
-                        si = json.loads(platform_svc.GetSystemInfo())
-                        c = si.get("cpu_temp", 0.0)
-                        g = si.get("gpu_temp", 0.0)
+                        raw = _dbus_call(platform_svc.GetSystemInfo)
+                        if raw is not None:
+                            si = json.loads(raw)
+                            c = si.get("cpu_temp", 0.0)
+                            g = si.get("gpu_temp", 0.0)
                     except Exception: pass
 
                 if fan_svc:
-                    try: fi = json.loads(fan_svc.GetFanInfo())
+                    try:
+                        raw = _dbus_call(fan_svc.GetFanInfo)
+                        if raw is not None:
+                            fi = json.loads(raw)
                     except Exception: pass
 
                 if power_svc:
-                    try: pp = json.loads(power_svc.GetPowerProfile())
+                    try:
+                        raw = _dbus_call(power_svc.GetPowerProfile)
+                        if raw is not None:
+                            pp = json.loads(raw)
                     except Exception: pass
 
             sensors = []
@@ -962,11 +985,14 @@ class FanPage(Gtk.Box):
         self._block_sync = True
         GLib.timeout_add(1500, self._unblock_sync)
         if self._power_svc:
-            try:
-                self._power_svc.SetPowerProfile(profile)
-                self.pp_status.set_label(f"{T('active_profile')}: {profile}")
-            except Exception as e:
-                self.pp_status.set_label(f"{T('error')}: {e}")
+            svc = self._power_svc
+            def _bg():
+                try:
+                    _dbus_call(svc.SetPowerProfile, profile)
+                    GLib.idle_add(lambda: self.pp_status.set_label(f"{T('active_profile')}: {profile}"))
+                except Exception as e:
+                    GLib.idle_add(lambda: self.pp_status.set_label(f"{T('error')}: {e}"))
+            threading.Thread(target=_bg, daemon=True).start()
 
     def _on_fan_mode(self, mode):
         self.fan_mode = mode
@@ -999,12 +1025,16 @@ class FanPage(Gtk.Box):
         GLib.timeout_add(block_ms, self._unblock_sync)
 
         if self.service:
-            try:
-                self.service.SetFanMode(daemon_mode)
-                labels = {"standard": T("standard"), "max": T("max"), "custom": T("custom")}
-                self.fan_mode_status.set_label(f"{T('mode')}: {labels.get(mode, mode)}")
-            except Exception as e:
-                self.fan_mode_status.set_label(f"{T('error')}: {e}")
+            svc = self.service
+            labels = {"standard": T("standard"), "max": T("max"), "custom": T("custom")}
+            label_text = labels.get(mode, mode)
+            def _bg():
+                try:
+                    _dbus_call(svc.SetFanMode, daemon_mode)
+                    GLib.idle_add(lambda: self.fan_mode_status.set_label(f"{T('mode')}: {label_text}"))
+                except Exception as e:
+                    GLib.idle_add(lambda: self.fan_mode_status.set_label(f"{T('error')}: {e}"))
+            threading.Thread(target=_bg, daemon=True).start()
 
         # Only apply fan curve in custom mode (standard delegates to EC)
         if mode == "custom":

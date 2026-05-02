@@ -29,8 +29,27 @@ info()  { echo -e "${CYAN}[i]${NC} $*"; }
 debug() { echo -e "${BLUE}[DEBUG]${NC} $*"; }
 
 # Language detection — sudo root ortamında LANG boş gelebilir, fallback "en"
-LANG_CODE=${LANG:-en}
-LANG_CODE=${LANG_CODE:0:2}
+# Check multiple locale variables; when running under sudo, try invoking user's locale
+_detect_lang() {
+    # Try the standard locale variables first
+    for var in "$LC_MESSAGES" "$LC_ALL" "$LANG" "$LANGUAGE"; do
+        if [ -n "$var" ]; then
+            echo "${var:0:2}"
+            return
+        fi
+    done
+    # Under sudo, try the invoking user's locale
+    if [ -n "${SUDO_USER:-}" ]; then
+        local user_lang
+        user_lang=$(su - "$SUDO_USER" -c 'echo "${LANG:-}"' 2>/dev/null || true)
+        if [ -n "$user_lang" ]; then
+            echo "${user_lang:0:2}"
+            return
+        fi
+    fi
+    echo "en"
+}
+LANG_CODE=$(_detect_lang)
 
 # --- I18N MESSAGES ---
 msg() {
@@ -66,6 +85,15 @@ msg() {
             "pm_not_in_repo")       printf '%s\n' "Uyarı: ${1:-} paket yöneticinizde bulunamadı. Lütfen manuel kurun." ;;
             "skipping_pm")          printf '%s\n' "Güç yöneticisi kurulumu atlanıyor." ;;
             "driver_failed")        printf '%s\n' "Uyarı: Sürücü ${1:-} işlemi başarısız oldu. RGB kontrolü çalışmayabilir." ;;
+            "driver_prompt")        printf '%s\n' "Özel hp-wmi/rgb DKMS sürücüsünü yüklemek istiyor musunuz?" ;;
+            "driver_hint")          printf '%s\n' "Eğer kernel sürümünüz 7.0 veya üzerindeyseniz VE fan kontrolü zaten çalışıyorsa, bunu yüklemenize gerek YOKTUR." ;;
+            "driver_choice")        printf '%s' "Özel sürücü yüklensin mi? (y/N): " ;;
+            "driver_skipped")       printf '%s\n' "Özel sürücü kurulumu atlanıyor." ;;
+            "help_title")           printf '%s\n' "Komutlar:" ;;
+            "help_install")         printf '%s\n' "  install    - Uygulama ve kernel sürücüsünün tam kurulumu" ;;
+            "help_uninstall")       printf '%s\n' "  uninstall  - Uygulama ve sürücünün tamamen kaldırılması (ayarlar korunur)" ;;
+            "help_update")          printf '%s\n' "  update     - Son değişiklikleri çek ve yeniden kur" ;;
+            "help_example")         printf '%s\n' "Örnek: sudo $0 install" ;;
             *)                      printf '%s\n' "$key" ;;
         esac
     else
@@ -98,6 +126,15 @@ msg() {
             "pm_not_in_repo")       printf '%s\n' "Warning: ${1:-} was not found in your package manager. Please install it manually." ;;
             "skipping_pm")          printf '%s\n' "Skipping power manager installation." ;;
             "driver_failed")        printf '%s\n' "Warning: Driver ${1:-} failed. RGB control may not work." ;;
+            "driver_prompt")        printf '%s\n' "Do you want to install the custom hp-wmi/rgb driver via DKMS?" ;;
+            "driver_hint")          printf '%s\n' "If your kernel is 7.0 or higher AND you can control fans out-of-the-box, you do NOT need this." ;;
+            "driver_choice")        printf '%s' "Install custom driver? (y/N): " ;;
+            "driver_skipped")       printf '%s\n' "Skipping custom driver installation." ;;
+            "help_title")           printf '%s\n' "Commands:" ;;
+            "help_install")         printf '%s\n' "  install    - Full installation of application and kernel driver" ;;
+            "help_uninstall")       printf '%s\n' "  uninstall  - Complete removal of application and driver (keeps config)" ;;
+            "help_update")          printf '%s\n' "  update     - Pull latest changes and reinstall" ;;
+            "help_example")         printf '%s\n' "Example: sudo $0 install" ;;
             *)                      printf '%s\n' "$key" ;;
         esac
     fi
@@ -188,7 +225,7 @@ install_dependencies() {
             $INSTALL_CMD python python-gobject gtk4 libadwaita python-pydbus python-cairo
             ;;
         apt)
-            $INSTALL_CMD python3 python3-gi gir1.2-gtk-4.0 gir1.2-adw-1 python3-pydbus python3-cairo
+            $INSTALL_CMD python3 python3-gi python3-gi-cairo gir1.2-gtk-4.0 gir1.2-adw-1 python3-pydbus python3-cairo
             ;;
         dnf|zypper)
             $INSTALL_CMD python3 python3-gobject gtk4 libadwaita python3-pydbus python3-cairo
@@ -252,15 +289,13 @@ manage_driver() {
     if [ -d "driver" ] && [ -f "driver/setup.sh" ]; then
         if [ "$action" = "install" ]; then
             printf '\n%s\n' "--------------------------------------------------------"
-            printf '%s\n'   "Do you want to install the custom hp-wmi/rgb driver via DKMS?"
-            printf '%s\n'   "If your kernel is 7.0 or higher AND you can control fans out-of-the-box, you do NOT need this."
-            printf '\n%s\n'   "Özel hp-wmi/rgb DKMS sürücüsünü yüklemek istiyor musunuz?"
-            printf '%s\n'   "Eğer kernel sürümünüz 7.0 veya üzerindeyseniz VE fan kontrolü zaten çalışıyorsa, bunu yüklemenize gerek YOKTUR."
+            msg driver_prompt
+            msg driver_hint
             printf '%s\n' "--------------------------------------------------------"
-            printf '%s' "Install custom driver? / Özel sürücü yüklensin mi? (y/N): "
+            msg driver_choice
             read -r drv_choice
             if [[ ! "$drv_choice" =~ ^[Yy]$ ]]; then
-                info "Skipping custom driver installation."
+                info "$(msg driver_skipped)"
                 return
             fi
         fi
@@ -667,14 +702,14 @@ do_update() {
 # --- MAIN ---
 if [ $# -eq 0 ]; then
     echo -e "${CYAN}${APP_NAME} - Unified Setup Tool (v${VERSION})${NC}"
-    echo "Usage: sudo $0 [command]"
+    echo "$(msg usage)"
     echo ""
-    echo "Commands:"
-    echo "  install    - Full installation of application and kernel driver"
-    echo "  uninstall  - Complete removal of application and driver (keeps config)"
-    echo "  update     - Pull latest changes and reinstall"
+    msg help_title
+    msg help_install
+    msg help_uninstall
+    msg help_update
     echo ""
-    echo "Example: sudo $0 install"
+    msg help_example
     exit 0
 fi
 

@@ -5,7 +5,7 @@ Provides system-monitor-only overview: temperatures, fan, battery, and usage.
 All heavy I/O runs in a background thread.
 """
 
-import gi, math, json, subprocess, os, shutil, threading
+import gi, math, json, subprocess, os, shutil, threading, concurrent.futures
 
 gi.require_version("Gtk", "4.0")
 from gi.repository import Gtk, GLib, Gdk
@@ -256,6 +256,21 @@ class ResourceBox(Gtk.Box):
 # ═════════════════════════════════════════════════════════════════════════════
 _REFRESH_MS = 7000          # background fetch period
 _NVIDIA_SMI = None          # cached shutil.which result
+_DBUS_TIMEOUT = 5           # seconds — prevents D-Bus hangs from freezing app
+_dbus_pool = concurrent.futures.ThreadPoolExecutor(max_workers=2, thread_name_prefix="dash-dbus")
+
+
+def _dbus_call(fn, *args, timeout=_DBUS_TIMEOUT):
+    """Run a D-Bus proxy call with a timeout to avoid indefinite blocking."""
+    fut = _dbus_pool.submit(fn, *args)
+    try:
+        return fut.result(timeout=timeout)
+    except concurrent.futures.TimeoutError:
+        print(f"⚠ D-Bus call timed out after {timeout}s: {fn}")
+        return None
+    except Exception as e:
+        print(f"⚠ D-Bus call failed: {e}")
+        return None
 
 class DashboardPage(Gtk.Box):
     """Main dashboard: 4-pane grid with info bar."""
@@ -651,26 +666,29 @@ class DashboardPage(Gtk.Box):
         self._on_action(None, mode)
 
     def _on_action(self, _btn, action_id):
-        try:
-            if action_id == "max_fan":
-                if "fan" in self.services and self.services["fan"]:
-                    fan_data = self._data.get("fan", {})
-                    current_mode = fan_data.get("mode", "auto")
-                    if current_mode == "max":
-                        self.services["fan"].SetFanMode("auto")
-                    else:
-                        self.services["fan"].SetFanMode("max")
-            elif action_id == "balanced" or action_id == "eco":
-                if "power" in self.services and self.services["power"]:
-                    self.services["power"].SetPowerProfile(action_id if action_id == "balanced" else "power-saver")
-            elif action_id == "performance" or action_id == "perf":
-                if "power" in self.services and self.services["power"]:
-                    self.services["power"].SetPowerProfile("performance")
-            elif action_id == "clean_ram":
-                if "platform" in self.services and self.services["platform"]:
-                    self.services["platform"].CleanMemory()
-        except Exception as e:
-            print(f"[Dashboard] action '{action_id}' failed: {e}")
+        """Dispatch D-Bus action to a background thread to avoid UI freezing."""
+        def _bg():
+            try:
+                if action_id == "max_fan":
+                    if "fan" in self.services and self.services["fan"]:
+                        fan_data = self._data.get("fan", {})
+                        current_mode = fan_data.get("mode", "auto")
+                        if current_mode == "max":
+                            _dbus_call(self.services["fan"].SetFanMode, "auto")
+                        else:
+                            _dbus_call(self.services["fan"].SetFanMode, "max")
+                elif action_id == "balanced" or action_id == "eco":
+                    if "power" in self.services and self.services["power"]:
+                        _dbus_call(self.services["power"].SetPowerProfile, action_id if action_id == "balanced" else "power-saver")
+                elif action_id == "performance" or action_id == "perf":
+                    if "power" in self.services and self.services["power"]:
+                        _dbus_call(self.services["power"].SetPowerProfile, "performance")
+                elif action_id == "clean_ram":
+                    if "platform" in self.services and self.services["platform"]:
+                        _dbus_call(self.services["platform"].CleanMemory)
+            except Exception as e:
+                print(f"[Dashboard] action '{action_id}' failed: {e}")
+        threading.Thread(target=_bg, daemon=True).start()
 
     # ═════════════════════════════════════════════════════════════════════════
     #  BACKGROUND DATA FETCH  –  keeps UI thread free
@@ -691,12 +709,16 @@ class DashboardPage(Gtk.Box):
         if self.services:
             try:
                 if "platform" in self.services and self.services["platform"]:
-                    d["sys"] = json.loads(self.services["platform"].GetSystemInfo())
+                    raw = _dbus_call(self.services["platform"].GetSystemInfo)
+                    if raw is not None:
+                        d["sys"] = json.loads(raw)
             except Exception: pass
             
             try:
                 if "fan" in self.services and self.services["fan"]:
-                    d["fan"] = json.loads(self.services["fan"].GetFanInfo())
+                    raw = _dbus_call(self.services["fan"].GetFanInfo)
+                    if raw is not None:
+                        d["fan"] = json.loads(raw)
             except Exception: pass
 
         # ── CPU/GPU temp — prefer daemon values for consistency with fan page ─

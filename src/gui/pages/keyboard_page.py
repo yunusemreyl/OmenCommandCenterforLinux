@@ -63,9 +63,10 @@ class KeyboardPage(Gtk.Box):
         header = Gtk.Box(spacing=15, valign=Gtk.Align.CENTER)
         self._header_box = header
         if os.path.exists(self.logo_path):
-            from gi.repository import GdkPixbuf, Gdk
-            pix = GdkPixbuf.Pixbuf.new_from_file_at_scale(self.logo_path, 48, 48, True)
-            img = Gtk.Image.new_from_paintable(Gdk.Texture.new_for_pixbuf(pix))
+            from gi.repository import Gdk
+            texture = Gdk.Texture.new_from_filename(self.logo_path)
+            img = Gtk.Image.new_from_paintable(texture)
+            img.set_pixel_size(48)
             header.append(img)
         
         title_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
@@ -178,9 +179,9 @@ class KeyboardPage(Gtk.Box):
         row = Gtk.Box(spacing=15)
         if icon_name.startswith("/") or icon_name.endswith(".png"):
             if os.path.exists(icon_name):
-                from gi.repository import GdkPixbuf, Gdk
-                pix = GdkPixbuf.Pixbuf.new_from_file_at_scale(icon_name, 24, 24, True)
-                icon = Gtk.Image.new_from_paintable(Gdk.Texture.new_for_pixbuf(pix))
+                from gi.repository import Gdk
+                texture = Gdk.Texture.new_from_filename(icon_name)
+                icon = Gtk.Image.new_from_paintable(texture)
             else:
                 icon = Gtk.Image.new_from_icon_name("image-missing")
         else:
