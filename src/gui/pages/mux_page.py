@@ -269,39 +269,15 @@ class MUXPage(Gtk.Box):
         install_card.append(install_header)
 
         install_desc = Gtk.Label(
-            label="envycontrol allows you to switch between Hybrid, Integrated and Discrete GPU modes.",
+            label="envycontrol allows you to switch between Hybrid, Integrated and Discrete GPU modes.\n"
+                  "Install it using your distribution's package manager.",
             wrap=True, xalign=0.5, css_classes=["stat-lbl"])
         install_card.append(install_desc)
 
-        self._install_btn = Gtk.Button(label="⬇ Install envycontrol via pip")
+        self._install_btn = Gtk.Button(label="📖 View Installation Instructions")
         self._install_btn.add_css_class("suggested-action")
-        self._install_btn.connect("clicked", self._on_install_envycontrol)
+        self._install_btn.connect("clicked", self._on_open_install_instructions)
         install_card.append(self._install_btn)
-
-        # Live output area (hidden until install starts)
-        self._install_output_frame = Gtk.Frame()
-        self._install_output_frame.set_visible(False)
-        self._install_output_frame.set_margin_top(6)
-
-        self._install_output_scroll = Gtk.ScrolledWindow()
-        self._install_output_scroll.set_min_content_height(120)
-        self._install_output_scroll.set_max_content_height(180)
-        self._install_output_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
-
-        self._install_output_label = Gtk.Label(
-            label="", xalign=0, wrap=True, selectable=True,
-            css_classes=["monospace"])
-        self._install_output_label.set_margin_start(8)
-        self._install_output_label.set_margin_end(8)
-        self._install_output_label.set_margin_top(6)
-        self._install_output_label.set_margin_bottom(6)
-        self._install_output_scroll.set_child(self._install_output_label)
-        self._install_output_frame.set_child(self._install_output_scroll)
-        install_card.append(self._install_output_frame)
-
-        self._install_spinner = Gtk.Spinner()
-        self._install_spinner.set_visible(False)
-        install_card.append(self._install_spinner)
 
         self.not_available.append(install_card)
         scroll_content.append(self.not_available)
@@ -437,80 +413,19 @@ class MUXPage(Gtk.Box):
                 self.status_label.set_label(
                     f"{T('mode_set').format(mode=self.current_mode)} "
                     f"({T('error')}: reboot: {e})")
-    # ── envycontrol installer ─────────────────────────────────────────────────
-    def _on_install_envycontrol(self, _btn):
-        """Start envycontrol installation in a background thread."""
-        import threading as _thr
-        self._install_btn.set_sensitive(False)
-        self._install_btn.set_label("Installing…")
-        self._install_output_frame.set_visible(True)
-        self._install_output_label.set_label("")
-        self._install_spinner.set_visible(True)
-        self._install_spinner.start()
-        _thr.Thread(target=self._install_worker, daemon=True).start()
 
-    def _install_worker(self):
-        """Run pip install envycontrol and stream output to the UI."""
-        import io
-        lines: list[str] = []
+    # ── envycontrol install instructions ──────────────────────────────────────
+    _ENVYCONTROL_URL = "https://github.com/bayasdev/envycontrol#%EF%B8%8F-getting-envycontrol"
 
-        def _append(text):
-            lines.append(text)
-            joined = "\n".join(lines[-30:])  # keep last 30 lines
-            GLib.idle_add(self._install_output_label.set_label, joined)
-            # Auto-scroll to bottom
-            adj = self._install_output_scroll.get_vadjustment()
-            if adj:
-                GLib.idle_add(adj.set_value, adj.get_upper())
-
-        _append("$ pip install envycontrol --break-system-packages")
+    def _on_open_install_instructions(self, _btn):
+        """Open the envycontrol installation instructions in the default browser."""
         try:
-            proc = subprocess.Popen(
-                ["pip", "install", "envycontrol", "--break-system-packages"],
-                stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                text=True, bufsize=1
+            subprocess.Popen(
+                ["xdg-open", self._ENVYCONTROL_URL],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
             )
-            for line in iter(proc.stdout.readline, ""):
-                _append(line.rstrip())
-            proc.wait()
-
-            if proc.returncode == 0:
-                _append("")
-                _append("✅ envycontrol installed successfully!")
-                GLib.idle_add(self._install_finished, True)
-            else:
-                _append("")
-                _append(f"❌ Installation failed (exit code {proc.returncode})")
-                GLib.idle_add(self._install_finished, False)
-        except FileNotFoundError:
-            _append("❌ pip not found. Please install python3-pip first.")
-            GLib.idle_add(self._install_finished, False)
-        except Exception as e:
-            _append(f"❌ Error: {e}")
-            GLib.idle_add(self._install_finished, False)
-
-    def _install_finished(self, success):
-        """Called on the main thread when installation completes."""
-        self._install_spinner.stop()
-        self._install_spinner.set_visible(False)
-        if success:
-            self._install_btn.set_label("✅ Installed — Restarting service…")
-            # Tell the MUX daemon to re-detect backends
-            if self.service:
-                try:
-                    self.service.SetMuxBackend("auto")
-                except Exception:
-                    pass
-            # Refresh the page after a short delay
-            GLib.timeout_add(2000, self._post_install_refresh)
-        else:
-            self._install_btn.set_label("⬇ Retry Install")
-            self._install_btn.set_sensitive(True)
-
-    def _post_install_refresh(self):
-        """Re-check backend availability after envycontrol install."""
-        self._refresh()
-        return False  # don't repeat
+        except Exception:
+            pass
 
     # ── Data refresh ──────────────────────────────────────────────────────────
     def _refresh(self):
