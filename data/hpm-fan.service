@@ -9,17 +9,16 @@ ExecStart=/usr/bin/python3 /usr/libexec/hp-manager/services/fan_service.py
 Restart=on-failure
 RestartSec=3
 
-# Security hardening
-ProtectHome=true
-PrivateTmp=true
+# Security hardening — namespace-creating directives (PrivateTmp, ProtectHome,
+# PrivateNetwork) disabled to fix status=226/NAMESPACE on Ubuntu 24.04+/Zorin OS 18.
+# These conflict with AppArmor profiles or systemd configurations on affected kernels.
+# Non-namespace directives are kept for defence-in-depth.
+ProtectHome=false
+PrivateTmp=false
+PrivateNetwork=false
 NoNewPrivileges=true
 LockPersonality=true
 RestrictSUIDSGID=true
-PrivateNetwork=true
-
-# Minimal sysfs access for fan hardware
-ReadWritePaths=/sys/class/hwmon /sys/devices/platform/hp-wmi /sys/devices/platform/hp-omen
-ReadWritePaths=/sys/firmware/acpi/platform_profile /etc/hp-manager
 
 [Install]
 WantedBy=multi-user.target
