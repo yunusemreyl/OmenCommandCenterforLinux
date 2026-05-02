@@ -11,7 +11,7 @@ DATA_DIR="/usr/share/hp-manager"
 BIN_LINK="/usr/bin/hp-manager"
 UNINSTALLER_LINK="/usr/bin/hp-manager-uninstall"
 CONFIG_DIR="/etc/hp-manager"
-VERSION="1.3.5"
+VERSION="1.3.6"
 
 # Colors
 RED='\033[0;31m'
@@ -32,7 +32,7 @@ debug() { echo -e "${BLUE}[DEBUG]${NC} $*"; }
 # Check multiple locale variables; when running under sudo, try invoking user's locale
 _detect_lang() {
     # Try the standard locale variables first
-    for var in "$LC_MESSAGES" "$LC_ALL" "$LANG" "$LANGUAGE"; do
+    for var in "${LC_MESSAGES:-}" "${LC_ALL:-}" "${LANG:-}" "${LANGUAGE:-}"; do
         if [ -n "$var" ]; then
             echo "${var:0:2}"
             return

@@ -319,7 +319,11 @@ class HPManagerWindow(Gtk.ApplicationWindow):
 
         self._apply_css()
         self._build_ui()
-        self._connect_daemon()
+        # Defer daemon connection so the window is presented first.
+        # This prevents the GUI from appearing frozen/not-starting when D-Bus
+        # services are unavailable or slow to respond after the new multi-service
+        # architecture was introduced in v1.3.5.
+        GLib.idle_add(self._connect_daemon)
         self._start_launcher_metrics()
 
     @staticmethod
