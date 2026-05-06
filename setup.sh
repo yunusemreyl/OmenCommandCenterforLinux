@@ -89,6 +89,14 @@ msg() {
             "driver_hint")          printf '%s\n' "Eğer kernel sürümünüz 7.0 veya üzerindeyseniz VE fan kontrolü zaten çalışıyorsa, bunu yüklemenize gerek YOKTUR." ;;
             "driver_choice")        printf '%s' "Özel sürücü yüklensin mi? (y/N): " ;;
             "driver_skipped")       printf '%s\n' "Özel sürücü kurulumu atlanıyor." ;;
+            "rgb_driver_prompt")    printf '%s\n' "hp-rgb-lighting sürücüsünü yüklemek istiyor musunuz?" ;;
+            "rgb_driver_note")      printf '%s\n' "  ⚠  Bu sürücü klavye RGB aydınlatma kontrolü için ZORUNLUDUR." ;;
+            "rgb_driver_choice")    printf '%s' "hp-rgb-lighting yüklensin mi? (y/N): " ;;
+            "rgb_driver_skipped")   printf '%s\n' "hp-rgb-lighting kurulumu atlanıyor. Klavye RGB aydınlatma kontrolü kullanılamayacak." ;;
+            "wmi_driver_prompt")    printf '%s\n' "Yamalı hp-wmi sürücüsünü yüklemek istiyor musunuz?" ;;
+            "wmi_driver_note")      printf '%s\n' "  Kernel sürümünüz 7.0 altında — fan/ısıl kontrol için bu sürücü gereklidir." ;;
+            "wmi_driver_choice")    printf '%s' "Yamalı hp-wmi yüklensin mi? (y/N): " ;;
+            "wmi_driver_skipped")   printf '%s\n' "Yamalı hp-wmi kurulumu atlanıyor." ;;
             "help_title")           printf '%s\n' "Komutlar:" ;;
             "help_install")         printf '%s\n' "  install    - Uygulama ve kernel sürücüsünün tam kurulumu" ;;
             "help_uninstall")       printf '%s\n' "  uninstall  - Uygulama ve sürücünün tamamen kaldırılması (ayarlar korunur)" ;;
@@ -130,6 +138,14 @@ msg() {
             "driver_hint")          printf '%s\n' "If your kernel is 7.0 or higher AND you can control fans out-of-the-box, you do NOT need this." ;;
             "driver_choice")        printf '%s' "Install custom driver? (y/N): " ;;
             "driver_skipped")       printf '%s\n' "Skipping custom driver installation." ;;
+            "rgb_driver_prompt")    printf '%s\n' "Do you want to install the hp-rgb-lighting driver?" ;;
+            "rgb_driver_note")      printf '%s\n' "  ⚠  This driver is REQUIRED for keyboard RGB lighting control." ;;
+            "rgb_driver_choice")    printf '%s' "Install hp-rgb-lighting? (y/N): " ;;
+            "rgb_driver_skipped")   printf '%s\n' "Skipping hp-rgb-lighting installation. Keyboard RGB lighting control will not be available." ;;
+            "wmi_driver_prompt")    printf '%s\n' "Do you want to install the patched hp-wmi driver?" ;;
+            "wmi_driver_note")      printf '%s\n' "  Your kernel is below 7.0 — this driver is needed for fan/thermal control." ;;
+            "wmi_driver_choice")    printf '%s' "Install patched hp-wmi? (y/N): " ;;
+            "wmi_driver_skipped")   printf '%s\n' "Skipping patched hp-wmi installation." ;;
             "help_title")           printf '%s\n' "Commands:" ;;
             "help_install")         printf '%s\n' "  install    - Full installation of application and kernel driver" ;;
             "help_uninstall")       printf '%s\n' "  uninstall  - Complete removal of application and driver (keeps config)" ;;
@@ -288,15 +304,61 @@ manage_driver() {
     local action=$1
     if [ -d "driver" ] && [ -f "driver/setup.sh" ]; then
         if [ "$action" = "install" ]; then
+            # Detect kernel version and board to decide which prompts to show
+            local kver_major kver_minor board_name
+            kver_major=$(uname -r | cut -d. -f1)
+            kver_minor=$(uname -r | cut -d. -f2)
+            board_name=$(cat /sys/devices/virtual/dmi/id/board_name 2>/dev/null | tr '[:lower:]' '[:upper:]' || echo "")
+
+            # stock hp-wmi (kernel 7.0+) already handles fan/thermal control
+            local stock_fan_support=true
+            if [ "$kver_major" -lt 7 ]; then
+                stock_fan_support=false
+            fi
+            case "$board_name" in
+                8D41) stock_fan_support=false ;; # OMEN Max 16 still needs patched hp-wmi
+            esac
+
+            # ── Prompt 1: hp-rgb-lighting (always shown — required for keyboard RGB) ──
             printf '\n%s\n' "--------------------------------------------------------"
-            msg driver_prompt
-            msg driver_hint
+            msg rgb_driver_prompt
+            msg rgb_driver_note
             printf '%s\n' "--------------------------------------------------------"
-            msg driver_choice
-            read -r drv_choice
-            if [[ ! "$drv_choice" =~ ^[Yy]$ ]]; then
-                info "$(msg driver_skipped)"
+            msg rgb_driver_choice
+            read -r rgb_choice
+
+            local install_rgb=false
+            if [[ "$rgb_choice" =~ ^[Yy]$ ]]; then
+                install_rgb=true
+            else
+                warn "$(msg rgb_driver_skipped)"
+            fi
+
+            # ── Prompt 2: patched hp-wmi (only when kernel < 7.0 or special board) ──
+            local install_wmi=false
+            if ! $stock_fan_support; then
+                printf '\n%s\n' "--------------------------------------------------------"
+                msg wmi_driver_prompt
+                msg wmi_driver_note
+                printf '%s\n' "--------------------------------------------------------"
+                msg wmi_driver_choice
+                read -r wmi_choice
+
+                if [[ "$wmi_choice" =~ ^[Yy]$ ]]; then
+                    install_wmi=true
+                else
+                    info "$(msg wmi_driver_skipped)"
+                fi
+            fi
+
+            # Nothing selected — skip driver installation entirely
+            if ! $install_rgb && ! $install_wmi; then
                 return
+            fi
+
+            # When only RGB was requested (kernel < 7.0 case), force rgb-only mode
+            if $install_rgb && ! $install_wmi; then
+                export FORCE_RGB_ONLY=true
             fi
         fi
         info "Running driver ${action}..."

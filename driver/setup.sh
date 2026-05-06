@@ -40,6 +40,10 @@ fi
 if $FORCE_CUSTOM_HPWMI; then
     STOCK_FAN_SUPPORT=false
 fi
+# Allow the parent installer to request RGB-only mode (e.g. user declined patched hp-wmi).
+if [ "${FORCE_RGB_ONLY:-false}" = true ]; then
+    STOCK_FAN_SUPPORT=true
+fi
 
 info()  { echo -e "${BLUE}[INFO]${NC} $*"; }
 ok()    { echo -e "${GREEN}[OK]${NC} $*"; }
