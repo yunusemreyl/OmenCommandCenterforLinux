@@ -23,7 +23,7 @@ from common.sysfs import sysfs_exists, sysfs_read, sysfs_read_str, sysfs_write
 from pydbus import SystemBus
 
 logger = setup_logging("power")
-THERMAL_PROFILE_DEFAULT = 0
+THERMAL_PROFILE_BALANCED = 0
 
 
 # ─── Power Profile Controller ────────────────────────────────────────────────
@@ -99,7 +99,7 @@ class PowerProfileController:
         ):
             if not sysfs_exists(path):
                 continue
-            val = sysfs_read(path, THERMAL_PROFILE_DEFAULT)
+            val = sysfs_read(path, THERMAL_PROFILE_BALANCED)
             if val == 1:
                 return "performance"
             return "balanced"
