@@ -17,7 +17,13 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from common.logging_config import setup_logging
 from common.config import ServiceConfig
-from common.sysfs import sysfs_read, sysfs_read_str, sysfs_write, sysfs_exists
+from common.sysfs import (
+    normalize_profile_name,
+    sysfs_exists,
+    sysfs_read,
+    sysfs_read_str,
+    sysfs_write,
+)
 from common.dbus_helpers import run_service, system_sleeping
 
 logger = setup_logging("fan")
@@ -129,7 +135,10 @@ class FanController:
         ):
             if not sysfs_exists(path):
                 continue
-            return "max" if sysfs_read(path, THERMAL_PROFILE_BALANCED) == THERMAL_PROFILE_MAX else "auto"
+            thermal_profile = sysfs_read(path, THERMAL_PROFILE_BALANCED)
+            if thermal_profile == THERMAL_PROFILE_MAX:
+                return "max"
+            return "auto"
 
         for path in (
             "/sys/firmware/acpi/platform_profile",
@@ -137,8 +146,8 @@ class FanController:
         ):
             if not sysfs_exists(path):
                 continue
-            raw = sysfs_read_str(path, "balanced").strip().lower()
-            return "max" if "performance" in raw else "auto"
+            normalized = normalize_profile_name(sysfs_read_str(path, "balanced"))
+            return "max" if "performance" in normalized else "auto"
 
         return "auto"
 

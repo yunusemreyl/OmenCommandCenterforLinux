@@ -18,7 +18,13 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from common.logging_config import setup_logging
 from common.config import ServiceConfig
 from common.dbus_helpers import run_service
-from common.sysfs import sysfs_exists, sysfs_read, sysfs_read_str, sysfs_write
+from common.sysfs import (
+    normalize_profile_name,
+    sysfs_exists,
+    sysfs_read,
+    sysfs_read_str,
+    sysfs_write,
+)
 
 from pydbus import SystemBus
 
@@ -110,8 +116,7 @@ class PowerProfileController:
         ):
             if not sysfs_exists(path):
                 continue
-            raw = sysfs_read_str(path, "balanced").strip().lower()
-            normalized = raw.replace("_", "-")
+            normalized = normalize_profile_name(sysfs_read_str(path, "balanced"))
             if "performance" in normalized:
                 return "performance"
             if normalized in ("low-power", "quiet", "cool", "power-saver"):
