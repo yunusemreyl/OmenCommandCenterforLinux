@@ -3,6 +3,7 @@ import sys
 import tempfile
 import types
 import unittest
+from unittest import mock
 
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -79,6 +80,38 @@ class FanControllerSysfsTest(unittest.TestCase):
             self.assertTrue(controller.set_fan_target(1, 0))
 
             self.assertEqual(self.read_file(hwmon, "pwm1"), "0")
+
+    def test_read_current_mode_uses_thermal_profile_fallback_for_max(self):
+        controller = self.make_controller("/fake/hwmon", fans=(1,))
+        def read_side_effect(path, default=0):
+            if path.endswith("pwm1_enable"):
+                return 2
+            return 1
+
+        def exists_side_effect(path):
+            return path.endswith("thermal_profile")
+
+        with mock.patch.object(fan_service, "sysfs_read", side_effect=read_side_effect), \
+             mock.patch.object(fan_service, "sysfs_exists", side_effect=exists_side_effect), \
+             mock.patch.object(fan_service, "sysfs_read_str", return_value="balanced"):
+            controller._read_current_mode()
+        self.assertEqual(controller.mode, "max")
+
+    def test_read_current_mode_uses_platform_profile_fallback_for_max(self):
+        controller = self.make_controller("/fake/hwmon", fans=(1,))
+        def read_side_effect(path, default=0):
+            if path.endswith("pwm1_enable"):
+                return 2
+            return 0
+
+        def exists_side_effect(path):
+            return path.endswith("platform_profile")
+
+        with mock.patch.object(fan_service, "sysfs_read", side_effect=read_side_effect), \
+             mock.patch.object(fan_service, "sysfs_exists", side_effect=exists_side_effect), \
+             mock.patch.object(fan_service, "sysfs_read_str", return_value="performance"):
+            controller._read_current_mode()
+        self.assertEqual(controller.mode, "max")
 
 
 if __name__ == "__main__":

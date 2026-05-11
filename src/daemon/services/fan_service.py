@@ -17,13 +17,21 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from common.logging_config import setup_logging
 from common.config import ServiceConfig
-from common.sysfs import sysfs_read, sysfs_write, sysfs_exists
+from common.sysfs import (
+    normalize_profile_name,
+    sysfs_exists,
+    sysfs_read,
+    sysfs_read_str,
+    sysfs_write,
+)
 from common.dbus_helpers import run_service, system_sleeping
 
 logger = setup_logging("fan")
 
 PWM_MAX = 255
 PWM_FALLBACK_MIN = 220
+THERMAL_PROFILE_BALANCED = 0
+THERMAL_PROFILE_MAX = 1
 
 # ─── Fan Controller ───────────────────────────────────────────────────────────
 
@@ -112,7 +120,36 @@ class FanController:
             return
         pwm_path = os.path.join(self.hwmon_path, "pwm1_enable")
         val = sysfs_read(pwm_path, 2)
-        self.mode = {0: "max", 1: "custom"}.get(val, "auto")
+        if val == 0:
+            self.mode = "max"
+            return
+        if val == 1:
+            self.mode = "custom"
+            return
+        self.mode = self._read_mode_fallback()
+
+    def _read_mode_fallback(self):
+        for path in (
+            "/sys/devices/platform/hp-wmi/thermal_profile",
+            "/sys/devices/platform/hp-omen/thermal_profile",
+        ):
+            if not sysfs_exists(path):
+                continue
+            thermal_profile = sysfs_read(path, THERMAL_PROFILE_BALANCED)
+            if thermal_profile == THERMAL_PROFILE_MAX:
+                return "max"
+            return "auto"
+
+        for path in (
+            "/sys/firmware/acpi/platform_profile",
+            "/sys/devices/platform/hp-wmi/platform_profile",
+        ):
+            if not sysfs_exists(path):
+                continue
+            normalized = normalize_profile_name(sysfs_read_str(path, "balanced"))
+            return "max" if "performance" in normalized else "auto"
+
+        return "auto"
 
     # ── read ──────────────────────────────────────────────────────────
 

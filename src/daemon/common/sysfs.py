@@ -50,3 +50,9 @@ def sysfs_write(path: str, value) -> bool:
 def sysfs_exists(path: str) -> bool:
     """Check whether a sysfs path exists."""
     return os.path.exists(path)
+
+
+def normalize_profile_name(value: str, default: str = "balanced") -> str:
+    """Normalize platform/thermal profile names for comparisons."""
+    raw = (value or default).strip().lower()
+    return raw.replace("_", "-")
