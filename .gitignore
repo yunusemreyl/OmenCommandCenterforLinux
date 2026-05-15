@@ -25,5 +25,6 @@ driver/*.order
 driver/hp-wmi.kmod
 driver/.tmp_versions/
 driver/.*.cmd
+driver/.*.d
 /tmp/
 issues/
