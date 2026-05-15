@@ -9,9 +9,10 @@ APP_NAME="OMEN Command Center for Linux"
 INSTALL_DIR="/usr/libexec/hp-manager"
 DATA_DIR="/usr/share/hp-manager"
 BIN_LINK="/usr/bin/hp-manager"
+CLI_LINK="/usr/bin/omen"
 UNINSTALLER_LINK="/usr/bin/hp-manager-uninstall"
 CONFIG_DIR="/etc/hp-manager"
-VERSION="1.3.6"
+VERSION="1.3.7"
 
 # Colors
 RED='\033[0;31m'
@@ -604,6 +605,10 @@ do_install() {
     cp src/gui/pages/*.py     "$DATA_DIR/gui/pages/"
     cp src/gui/widgets/*.py   "$DATA_DIR/gui/widgets/"
 
+    # CLI files
+    cp src/omen-cli.py "$INSTALL_DIR/"
+    chmod +x "$INSTALL_DIR/omen-cli.py"
+
     # Images (non-fatal if missing)
     if [ -d "images" ] && [ -n "$(ls -A images 2>/dev/null)" ]; then
         cp images/* "$DATA_DIR/images/"
@@ -619,6 +624,9 @@ cd /usr/share/hp-manager/gui
 exec python3 /usr/share/hp-manager/gui/main_window.py "$@"
 LAUNCHER
     chmod +x "$BIN_LINK"
+
+    # CLI link
+    ln -sf "$INSTALL_DIR/omen-cli.py" "$CLI_LINK"
 
     # System integration
     mkdir -p /etc/dbus-1/system.d
@@ -659,6 +667,7 @@ fi
 INSTALL_DIR="/usr/libexec/hp-manager"
 DATA_DIR="/usr/share/hp-manager"
 BIN_LINK="/usr/bin/hp-manager"
+CLI_LINK="/usr/bin/omen"
 UNINSTALLER_LINK="/usr/bin/hp-manager-uninstall"
 
 echo "Stopping and disabling services..."
@@ -673,6 +682,7 @@ echo "Removing files..."
 rm -f /etc/systemd/system/hp-manager.service
 rm -f /etc/systemd/system/com.yyl.hpmanager.service
 rm -f "$BIN_LINK"
+rm -f "$CLI_LINK"
 rm -rf "$INSTALL_DIR"
 rm -rf "$DATA_DIR"
 rm -rf "/var/lib/hp-manager"
@@ -723,6 +733,7 @@ do_uninstall() {
     rm -f /etc/systemd/system/hp-manager.service
     rm -f /etc/systemd/system/com.yyl.hpmanager.service
     rm -f "$BIN_LINK"
+    rm -f "$CLI_LINK"
     rm -f "$UNINSTALLER_LINK"
     rm -rf "$INSTALL_DIR"
     rm -rf "$DATA_DIR"

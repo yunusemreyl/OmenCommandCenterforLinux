@@ -151,7 +151,7 @@ class PowerProfileController:
                         break
 
             threading.Thread(
-                target=self._sync_nvidia_power, args=(profile,), daemon=True
+                target=self._sync_hardware_power, args=(profile,), daemon=True
             ).start()
             return True
         except Exception as e:
@@ -201,6 +201,39 @@ class PowerProfileController:
                     logger.info("NVIDIA GPU restored to DEFAULT Base: %dW", limit)
         except Exception as e:
             logger.warning("Failed to sync NVIDIA power curve: %s", e)
+
+    def _sync_hardware_power(self, profile):
+        """Orchestrate NVIDIA SMI and Kernel WMI power limits."""
+        self._sync_nvidia_power(profile)
+        self._sync_kernel_gpu_power(profile)
+
+    def _sync_kernel_gpu_power(self, profile):
+        """Trigger TGP and PPAB via the patched hp-wmi driver."""
+        base = "/sys/devices/platform/hp-wmi"
+        if not sysfs_exists(base):
+            base = "/sys/devices/platform/hp-omen"
+        
+        tgp_path = f"{base}/gpu_tgp"
+        ppab_path = f"{base}/gpu_ppab"
+
+        if not sysfs_exists(tgp_path):
+            return
+
+        try:
+            if profile == "performance":
+                sysfs_write(tgp_path, "1")
+                sysfs_write(ppab_path, "1")
+                logger.info("Kernel GPU Power: TGP=Enabled, PPAB=Enabled")
+            elif profile == "balanced":
+                sysfs_write(tgp_path, "0")
+                sysfs_write(ppab_path, "1")
+                logger.info("Kernel GPU Power: TGP=Disabled, PPAB=Enabled")
+            else: # power-saver / quiet / eco
+                sysfs_write(tgp_path, "0")
+                sysfs_write(ppab_path, "0")
+                logger.info("Kernel GPU Power: TGP=Disabled, PPAB=Disabled")
+        except Exception as e:
+            logger.warning("Failed to sync Kernel GPU power: %s", e)
 
 
 # ─── D-Bus Service ────────────────────────────────────────────────────────────

@@ -1172,6 +1172,95 @@ static bool hp_wmi_gpu_mode_supported(void)
 	return system_device_mode[0] <= 2;
 }
 
+static int victus_s_gpu_thermal_profile_get(bool *ctgp_enable,
+					    bool *ppab_enable,
+					    u8 *dstate,
+					    u8 *gpu_slowdown_temp);
+
+static int victus_s_gpu_thermal_profile_set(bool ctgp_enable,
+					    bool ppab_enable,
+					    u8 dstate);
+
+static ssize_t gpu_tgp_show(struct device *dev, struct device_attribute *attr,
+			    char *buf)
+{
+	bool ctgp, ppab;
+	u8 dstate, slowdown;
+	int ret;
+
+	guard(mutex)(&active_platform_profile_lock);
+
+	ret = victus_s_gpu_thermal_profile_get(&ctgp, &ppab, &dstate, &slowdown);
+	if (ret < 0)
+		return ret;
+
+	return sysfs_emit(buf, "%d\n", ctgp);
+}
+
+static ssize_t gpu_tgp_store(struct device *dev, struct device_attribute *attr,
+			     const char *buf, size_t count)
+{
+	bool ppab, target;
+	u8 dstate;
+	int ret;
+
+	ret = kstrtobool(buf, &target);
+	if (ret)
+		return ret;
+
+	guard(mutex)(&active_platform_profile_lock);
+
+	ret = victus_s_gpu_thermal_profile_get(NULL, &ppab, &dstate, NULL);
+	if (ret < 0)
+		return ret;
+
+	ret = victus_s_gpu_thermal_profile_set(target, ppab, dstate);
+	if (ret < 0)
+		return ret;
+
+	return count;
+}
+
+static ssize_t gpu_ppab_show(struct device *dev, struct device_attribute *attr,
+			     char *buf)
+{
+	bool ctgp, ppab;
+	u8 dstate, slowdown;
+	int ret;
+
+	guard(mutex)(&active_platform_profile_lock);
+
+	ret = victus_s_gpu_thermal_profile_get(&ctgp, &ppab, &dstate, &slowdown);
+	if (ret < 0)
+		return ret;
+
+	return sysfs_emit(buf, "%d\n", ppab);
+}
+
+static ssize_t gpu_ppab_store(struct device *dev, struct device_attribute *attr,
+			      const char *buf, size_t count)
+{
+	bool ctgp, target;
+	u8 dstate;
+	int ret;
+
+	ret = kstrtobool(buf, &target);
+	if (ret)
+		return ret;
+
+	guard(mutex)(&active_platform_profile_lock);
+
+	ret = victus_s_gpu_thermal_profile_get(&ctgp, NULL, &dstate, NULL);
+	if (ret < 0)
+		return ret;
+
+	ret = victus_s_gpu_thermal_profile_set(ctgp, target, dstate);
+	if (ret < 0)
+		return ret;
+
+	return count;
+}
+
 static ssize_t graphics_mode_show(struct device *dev,
 				  struct device_attribute *attr, char *buf)
 {
@@ -1264,6 +1353,8 @@ static DEVICE_ATTR_RO(dock);
 static DEVICE_ATTR_RO(tablet);
 static DEVICE_ATTR_RW(postcode);
 static DEVICE_ATTR_RW(graphics_mode);
+static DEVICE_ATTR_RW(gpu_tgp);
+static DEVICE_ATTR_RW(gpu_ppab);
 
 static struct attribute *hp_wmi_attrs[] = {
 	&dev_attr_display.attr,
@@ -1273,6 +1364,8 @@ static struct attribute *hp_wmi_attrs[] = {
 	&dev_attr_tablet.attr,
 	&dev_attr_postcode.attr,
 	&dev_attr_graphics_mode.attr,
+	&dev_attr_gpu_tgp.attr,
+	&dev_attr_gpu_ppab.attr,
 	NULL,
 };
 
@@ -1281,6 +1374,9 @@ static umode_t hp_wmi_attrs_is_visible(struct kobject *kobj,
 {
 	if (attr == &dev_attr_graphics_mode.attr)
 		return hp_wmi_gpu_mode_supported() ? attr->mode : 0;
+
+	if (attr == &dev_attr_gpu_tgp.attr || attr == &dev_attr_gpu_ppab.attr)
+		return is_victus_s_thermal_profile() ? attr->mode : 0;
 
 	return attr->mode;
 }
@@ -1921,10 +2017,14 @@ static int victus_s_gpu_thermal_profile_get(bool *ctgp_enable,
 				   &gpu_power_modes, sizeof(gpu_power_modes),
 				   sizeof(gpu_power_modes));
 	if (ret == 0) {
-		*ctgp_enable      = gpu_power_modes.ctgp_enable  ? true : false;
-		*ppab_enable      = gpu_power_modes.ppab_enable  ? true : false;
-		*dstate           = gpu_power_modes.dstate;
-		*gpu_slowdown_temp = gpu_power_modes.gpu_slowdown_temp;
+		if (ctgp_enable)
+			*ctgp_enable      = gpu_power_modes.ctgp_enable  ? true : false;
+		if (ppab_enable)
+			*ppab_enable      = gpu_power_modes.ppab_enable  ? true : false;
+		if (dstate)
+			*dstate           = gpu_power_modes.dstate;
+		if (gpu_slowdown_temp)
+			*gpu_slowdown_temp = gpu_power_modes.gpu_slowdown_temp;
 	}
 
 	return ret;
@@ -2763,6 +2863,10 @@ static int hp_wmi_hwmon_write(struct device *dev, enum hwmon_sensor_types type,
 			ret = -EOPNOTSUPP;
 			break;
 		}
+		if (!priv->fan_speed_available) {
+			ret = -EOPNOTSUPP;
+			break;
+		}
 		if (channel < 0 || channel > 1 ||
 		    val < 0 || val > priv->max_rpms[channel]) {
 			ret = -EINVAL;
@@ -2829,6 +2933,20 @@ static void hp_wmi_hwmon_keep_alive_handler(struct work_struct *work)
 	mutex_unlock(&priv->hwmon_lock);
 }
 
+static void hp_wmi_set_fallback_fan_limits(struct hp_wmi_hwmon_priv *priv)
+{
+	priv->min_rpm             = 0;
+	/* firmware uses units of 100 RPM (50 == 5000 RPM) */
+	priv->max_rpm             = VICTUS_S_FALLBACK_MAX_RPM_FW;
+	priv->gpu_delta           = 0;
+	priv->max_rpms[0]         = VICTUS_S_FALLBACK_MAX_RPM;
+	priv->max_rpms[1]         = VICTUS_S_FALLBACK_MAX_RPM;
+	priv->target_rpms[0]      = 0;
+	priv->target_rpms[1]      = 0;
+	priv->prev_mode           = -1;
+	priv->fan_speed_available = true;
+}
+
 static int hp_wmi_setup_fan_settings(struct hp_wmi_hwmon_priv *priv)
 {
 	u8 fan_data[128] = {0};
@@ -2880,16 +2998,7 @@ static int hp_wmi_setup_fan_settings(struct hp_wmi_hwmon_priv *priv)
 		 */
 		if (cpu_rpm >= 0 && gpu_rpm >= 0) {
 			pr_info("Fan table query unsupported, using fallback fan speed probing with safe limits\n");
-			priv->min_rpm             = 0;
-			/* firmware uses units of 100 RPM (50 == 5000 RPM) */
-			priv->max_rpm             = VICTUS_S_FALLBACK_MAX_RPM_FW;
-			priv->gpu_delta           = 0;
-			priv->max_rpms[0]         = VICTUS_S_FALLBACK_MAX_RPM;
-			priv->max_rpms[1]         = VICTUS_S_FALLBACK_MAX_RPM;
-			priv->target_rpms[0]      = 0;
-			priv->target_rpms[1]      = 0;
-			priv->prev_mode           = -1;
-			priv->fan_speed_available = true;
+			hp_wmi_set_fallback_fan_limits(priv);
 			return 0;
 		}
 
@@ -2911,17 +3020,7 @@ static int hp_wmi_setup_fan_settings(struct hp_wmi_hwmon_priv *priv)
 		 */
 		pr_warn("Failed to get fan table (%d), falling back to 5000 RPM safe limits\n",
 			ret);
-		priv->min_rpm             = 0;
-		/* firmware uses units of 100 RPM (50 == 5000 RPM) */
-		priv->max_rpm             = VICTUS_S_FALLBACK_MAX_RPM_FW;
-		priv->gpu_delta           = 0;
-		priv->max_rpms[0]         = VICTUS_S_FALLBACK_MAX_RPM;
-		priv->max_rpms[1]         = VICTUS_S_FALLBACK_MAX_RPM;
-		priv->target_rpms[0]      = 0;
-		priv->target_rpms[1]      = 0;
-		priv->prev_mode           = -1;
-		/* FIX: fan_speed_available must be set so manual mode works */
-		priv->fan_speed_available = true;
+		hp_wmi_set_fallback_fan_limits(priv);
 		return 0;
 	}
 
@@ -2936,16 +3035,7 @@ static int hp_wmi_setup_fan_settings(struct hp_wmi_hwmon_priv *priv)
 		}
 
 		pr_warn("Malformed fan table, falling back to 5000 RPM safe limits\n");
-		priv->min_rpm             = 0;
-		/* firmware uses units of 100 RPM (50 == 5000 RPM) */
-		priv->max_rpm             = VICTUS_S_FALLBACK_MAX_RPM_FW;
-		priv->gpu_delta           = 0;
-		priv->max_rpms[0]         = VICTUS_S_FALLBACK_MAX_RPM;
-		priv->max_rpms[1]         = VICTUS_S_FALLBACK_MAX_RPM;
-		priv->target_rpms[0]      = 0;
-		priv->target_rpms[1]      = 0;
-		priv->prev_mode           = -1;
-		priv->fan_speed_available = true;
+		hp_wmi_set_fallback_fan_limits(priv);
 		return 0;
 	}
 
@@ -2989,16 +3079,16 @@ static int hp_wmi_hwmon_init(void)
 	if (ret)
 		return ret;
 
+	INIT_DELAYED_WORK(&priv->keep_alive_dwork,
+			  hp_wmi_hwmon_keep_alive_handler);
+	platform_set_drvdata(hp_wmi_platform_dev, priv);
+
 	hwmon = devm_hwmon_device_register_with_info(dev, "hp", priv,
 						     &chip_info, NULL);
 	if (IS_ERR(hwmon)) {
 		dev_err(dev, "Could not register hp hwmon device\n");
 		return PTR_ERR(hwmon);
 	}
-
-	INIT_DELAYED_WORK(&priv->keep_alive_dwork,
-			  hp_wmi_hwmon_keep_alive_handler);
-	platform_set_drvdata(hp_wmi_platform_dev, priv);
 
 	/*
 	 * Apply initial fan settings.  The workqueue is not yet running so

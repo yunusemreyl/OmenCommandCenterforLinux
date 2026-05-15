@@ -1,5 +1,5 @@
 
- # OMEN Command Center for Linux v1.3.6 #
+ # OMEN Command Center for Linux v1.3.7 #
 <p align="center">
   <img src="images/omenapplogo.png" alt="Logo" width="250">
 
@@ -21,36 +21,33 @@
 
 ---
 
-## 🛠️ What's New in v1.3.6?
+## 🛠️ What's New in v1.3.7?
 
-### 🔧 Critical Bug Fixes
-- **Fixed GUI not launching** after upgrading from v1.3.0 to v1.3.5. The service architecture transition left stale references that prevented the interface from starting.
-- **Fixed Fan Page temperature/power profile display**: The fan page's background monitor was calling `GetSystemInfo()` and `GetPowerProfile()` on the wrong service, resulting in 0°C readings and non-functional power profile buttons.
-- **Fixed language switch disconnection**: Switching language destroyed all pages but never reconnected daemon services, leaving the app fully offline until restart.
-- **Improved debug diagnostics**: The debug console now checks all 5 microservices (`hpm-fan`, `hpm-rgb`, `hpm-power`, `hpm-mux`, `hpm-platform`) instead of only one.
+### 🚀 New: `omen` Command Line Interface (CLI)
+Introducing a powerful new CLI for terminal lovers. Control your laptop's core features without opening the GUI.
+```bash
+omen fan max          # Set fans to max speed
+omen fan auto         # Restore auto fan control
+omen mode performance # Enable high-performance mode (lifts 80W cap)
+omen mode balanced    # Switch to balanced profile
+omen mode quiet       # Switch to quiet/power-saver mode
+omen mux hybrid       # Switch to Hybrid GPU mode
+omen mux discrete     # Switch to Discrete GPU mode
+```
 
-### 🧩 Architecture (since v1.3.5)
-The system runs **5 independent microservices**, each dedicated to a specific task:
+### ⚡ GPU Power Limit (80W Cap) Resolution
+The 80W power limit issue on NVIDIA GPUs is now fully resolved.
+- **Kernel-level TGP & PPAB Control**: Added support for lifting power caps on OMEN/Victus laptops via the patched `hp-wmi` driver.
+- **Automatic Sync**: Switching to "Performance" mode now automatically triggers both NVIDIA-SMI limits and kernel-level power expansion (lifting the 80W cap to 140W+ on supported hardware).
 
-| Service | Responsibility |
-|---------|---------------|
-| `hpm-fan` | Fan control, curve management, mode switching |
-| `hpm-rgb` | RGB keyboard lighting, effects engine |
-| `hpm-power` | Power profiles (eco / balanced / performance) |
-| `hpm-mux` | GPU mode switching (envycontrol, supergfxctl, prime-select) |
-| `hpm-platform` | System temperatures, battery info, keyboard fixes |
-
-This architecture ensures that if one service (e.g., RGB) fails, critical functions like fan control or GPU switching continue uninterrupted.
-
-### ⚡ Performance Highlights (since v1.3.5)
-- **RGB Engine**: Static color mode enters deep sleep using `Event.wait()`, consuming 0% CPU.
-- **Smart GPU Monitoring**: Checks Nvidia GPU power state before polling — won't force-wake the dGPU, extending battery life.
-- **Dynamic Backoff**: Polling intervals expand when system values remain unchanged.
-
-### 🎮 GPU TGP 80W Cap Mitigation (HP Omen Max 16)
-The chronic issue in mainline kernels (v7.0+) that capped GPU power at 80W on certain Omen models (board `8D41`) has been fixed. Thanks to a patch by **xcellsior**, unnecessary firmware writes at probe time are now gated.
+### 🔧 Driver & Stability Improvements
+- **Fixed INIT_DELAYED_WORK Race Condition**: Prevented potential kernel crashes during module initialization.
+- **Fixed TOCTOU Vulnerabilities**: Synchronized GPU power state updates in the driver for better data integrity.
+- **Improved NULL-Safety**: Hardened the `hp-wmi` driver against unexpected WMI responses.
+- **Cleaned up Fan Fallbacks**: Improved reliability on newer Victus-S series boards.
 
 ---
+
 
 ## ✨ Features
 
