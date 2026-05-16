@@ -44,7 +44,7 @@ class PowerServiceKernelGpuPowerSyncTest(unittest.TestCase):
         controller.proxy = None
         return controller
 
-    def test_sync_kernel_gpu_power_falls_back_to_hp_omen_path(self):
+    def test_hp_omen_fallback_path(self):
         controller = self.make_controller()
 
         def exists_side_effect(path):
@@ -64,7 +64,7 @@ class PowerServiceKernelGpuPowerSyncTest(unittest.TestCase):
             ]
         )
 
-    def test_sync_kernel_gpu_power_logs_warning_when_sysfs_write_fails(self):
+    def test_warning_logged_on_write_failure(self):
         controller = self.make_controller()
         with mock.patch.object(power_service, "sysfs_exists", return_value=True), \
              mock.patch.object(power_service, "sysfs_write", side_effect=[True, False]), \
