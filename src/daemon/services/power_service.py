@@ -222,17 +222,17 @@ class PowerProfileController:
 
         try:
             if profile == "performance":
-                tgp_val, ppab_val = "1", "1"
+                tgp_value, ppab_value = "1", "1"
                 success_msg = "Kernel GPU Power: TGP=Enabled, PPAB=Enabled"
             elif profile == "balanced":
-                tgp_val, ppab_val = "0", "1"
+                tgp_value, ppab_value = "0", "1"
                 success_msg = "Kernel GPU Power: TGP=Disabled, PPAB=Enabled"
             else: # power-saver / quiet / eco
-                tgp_val, ppab_val = "0", "0"
+                tgp_value, ppab_value = "0", "0"
                 success_msg = "Kernel GPU Power: TGP=Disabled, PPAB=Disabled"
 
-            tgp_ok = sysfs_write(tgp_path, tgp_val)
-            ppab_ok = sysfs_write(ppab_path, ppab_val)
+            tgp_ok = sysfs_write(tgp_path, tgp_value)
+            ppab_ok = sysfs_write(ppab_path, ppab_value)
             if tgp_ok and ppab_ok:
                 logger.info(success_msg)
             else:
