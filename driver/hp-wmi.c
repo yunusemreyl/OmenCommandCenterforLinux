@@ -137,6 +137,13 @@ static const struct thermal_profile_params omen_v1_no_ec_thermal_params = {
 	.ec_tp_offset = HP_NO_THERMAL_PROFILE_OFFSET,
 };
 
+static const struct thermal_profile_params omen_v1_unknown_ec_thermal_params = {
+	.performance  = HP_OMEN_V1_THERMAL_PROFILE_PERFORMANCE,
+	.balanced     = HP_OMEN_V1_THERMAL_PROFILE_DEFAULT,
+	.low_power    = HP_OMEN_V1_THERMAL_PROFILE_DEFAULT,
+	.ec_tp_offset = HP_EC_OFFSET_UNKNOWN,
+};
+
 /*
  * A generic pointer for the currently-active board's thermal profile
  * parameters.
@@ -160,17 +167,11 @@ static const char *const omen_thermal_profile_boards[] = {
 	"878A", "878B", "878C", "87B5", "886B", "886C", "88C8", "88CB",
 	"88D1", "88D2", "88F4", "88F5", "88F6", "88F7", "88FD", "88FE",
 	"88FF", "8900", "8901", "8902", "8912", "8917", "8918", "8949",
-	"894A", "89EB", "8A15", "8A42", "8BAD", "8BAC", "8C77", "8D41",
-	"8E35", "8E41", "8BA9",
+	"894A", "89EB", "8A15", "8A42", "8BAD", "8E41",
 	/*
-	 * FIX: 8D41 (HP Omen Max) added here so is_omen_thermal_profile()
-	 * returns true and the Victus S fan-table query is skipped during
-	 * probe, preventing a spurious -EINVAL/-22 failure.
-	 *
-	 * FIX: 8BAC (HP Omen 16-wf0xxx) added so is_omen_thermal_profile()
-	 * returns true.  The ACPI tables on this board have a broken GETB
-	 * helper (CreateField with zero length), but adding the board here
-	 * enables the WMI-based thermal profile path.
+	 * FIX: 8D41 (HP Omen Max), 8BAC (HP Omen 16-wf0xxx), 8BA9, 8E35, 8C77
+	 * removed from this list so they fall through to the Victus S-series
+	 * path, enabling modern GPU power management (cTGP/PPAB).
 	 */
 };
 
@@ -256,7 +257,7 @@ static const struct dmi_system_id victus_s_thermal_profile_boards[] __initconst 
 	},
 	{
 		.matches    = {DMI_MATCH(DMI_BOARD_NAME, "8D41")},
-		.driver_data = (void *)&omen_v1_legacy_thermal_params,
+		.driver_data = (void *)&omen_v1_unknown_ec_thermal_params,
 	},
 	{
 		.matches    = {DMI_MATCH(DMI_BOARD_NAME, "8D87")},
