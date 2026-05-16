@@ -68,10 +68,23 @@ class PowerServiceKernelGpuPowerSyncTest(unittest.TestCase):
         controller = self.make_controller()
         with mock.patch.object(power_service, "sysfs_exists", return_value=True), \
              mock.patch.object(power_service, "sysfs_write", side_effect=[True, False]), \
+             mock.patch.object(power_service.logger, "info") as info_mock, \
              mock.patch.object(power_service.logger, "warning") as warn_mock:
             controller._sync_kernel_gpu_power("balanced")
 
         warn_mock.assert_any_call("Failed to apply Kernel GPU power profile: %s", "balanced")
+        info_mock.assert_not_called()
+
+    def test_warning_logged_when_first_write_fails(self):
+        controller = self.make_controller()
+        with mock.patch.object(power_service, "sysfs_exists", return_value=True), \
+             mock.patch.object(power_service, "sysfs_write", side_effect=[False, True]), \
+             mock.patch.object(power_service.logger, "info") as info_mock, \
+             mock.patch.object(power_service.logger, "warning") as warn_mock:
+            controller._sync_kernel_gpu_power("performance")
+
+        warn_mock.assert_any_call("Failed to apply Kernel GPU power profile: %s", "performance")
+        info_mock.assert_not_called()
 
 
 if __name__ == "__main__":
