@@ -167,12 +167,8 @@ static const char *const omen_thermal_profile_boards[] = {
 	"878A", "878B", "878C", "87B5", "886B", "886C", "88C8", "88CB",
 	"88D1", "88D2", "88F4", "88F5", "88F6", "88F7", "88FD", "88FE",
 	"88FF", "8900", "8901", "8902", "8912", "8917", "8918", "8949",
-	"894A", "89EB", "8A15", "8A42", "8BAD", "8E41",
-	/*
-	 * FIX: 8D41 (HP Omen Max), 8BAC (HP Omen 16-wf0xxx), 8BA9, 8E35, 8C77
-	 * removed from this list so they fall through to the Victus S-series
-	 * path, enabling modern GPU power management (cTGP/PPAB).
-	 */
+	"894A", "89EB", "8A15", "8A42", "8BAD", "8BAC", "8C77", "8D41",
+	"8E35", "8E41", "8BA9",
 };
 
 /*
@@ -1815,6 +1811,9 @@ static inline int omen_thermal_profile_ec_timer_set(u8 value)
 static int platform_profile_omen_set_ec(enum platform_profile_option profile)
 {
 	enum hp_thermal_profile_omen_flags flags = 0;
+	bool gpu_ctgp_enable = false;
+	bool gpu_ppab_enable = false;
+	u8 gpu_dstate = 1;
 	int err, tp, tp_version;
 
 	tp_version = omen_get_thermal_policy_version();
@@ -1854,6 +1853,32 @@ static int platform_profile_omen_set_ec(enum platform_profile_option profile)
 	err = omen_thermal_profile_ec_flags_set(flags);
 	if (err < 0)
 		pr_warn("Failed to set thermal profile EC flags: %d\n", err);
+
+	/*
+	 * Modern Omen boards that also appear in victus_s_thermal_profile_boards
+	 * support GPU power management (cTGP/PPAB) via the same WMI interface.
+	 * Apply GPU power settings based on the selected profile so that the
+	 * GPU is not stuck at its base TGP (e.g. 80 W on HP Omen Max 8D41).
+	 */
+	if (is_victus_s_board) {
+		switch (profile) {
+		case PLATFORM_PROFILE_PERFORMANCE:
+			gpu_ctgp_enable = true;
+			gpu_ppab_enable = true;
+			break;
+		case PLATFORM_PROFILE_BALANCED:
+			gpu_ppab_enable = true;
+			break;
+		default:
+			break;
+		}
+
+		err = victus_s_gpu_thermal_profile_set(gpu_ctgp_enable,
+						       gpu_ppab_enable,
+						       gpu_dstate);
+		if (err < 0)
+			pr_warn("Failed to set GPU power modes: %d\n", err);
+	}
 
 	return 0;
 }
