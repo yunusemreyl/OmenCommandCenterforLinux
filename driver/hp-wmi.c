@@ -1873,6 +1873,14 @@ static int platform_profile_omen_set_ec(enum platform_profile_option profile)
 			break;
 		}
 
+		/*
+		 * The fan-count query (WMI 0x10) doubles as a "user-defined
+		 * mode" trigger.  The firmware requires this before it will
+		 * accept GPU thermal mode changes (WMI 0x22).  This mirrors
+		 * the call in platform_profile_victus_s_set_ec().
+		 */
+		hp_wmi_get_fan_count_userdefine_trigger();
+
 		err = victus_s_gpu_thermal_profile_set(gpu_ctgp_enable,
 						       gpu_ppab_enable,
 						       gpu_dstate);
