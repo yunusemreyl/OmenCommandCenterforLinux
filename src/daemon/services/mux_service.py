@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """OMEN Command Center for Linux — MUX (GPU Switch) Microservice."""
 
-import json, os, shutil, subprocess, sys, threading, time, typing
+import json, os, re, shutil, subprocess, sys, threading, time, typing
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
@@ -30,12 +30,12 @@ class MUXController:
             self.backend = forced
             logger.info("MUX backend: %s (forced)", self.backend)
             return
-        if "prime-select" in available:
-            self.backend = "prime-select"
-        elif "envycontrol" in available:
+        if "envycontrol" in available:
             self.backend = "envycontrol"
         elif "supergfxctl" in available:
             self.backend = "supergfxctl"
+        elif "prime-select" in available:
+            self.backend = "prime-select"
         else:
             self.backend = None
         logger.info("MUX backend: %s (auto)", self.backend or "none")
@@ -62,6 +62,20 @@ class MUXController:
     def get_backend(self):
         return self.backend or "none"
 
+    @staticmethod
+    def _normalize_mode(raw_mode):
+        mode = str(raw_mode or "").strip().lower()
+        word_tokens = set(re.findall(r"[a-z]+", mode))
+        if "hybrid" in word_tokens or "on-demand" in mode or ("on" in word_tokens and "demand" in word_tokens):
+            return "hybrid"
+        if "offload" in word_tokens and "nvidia" in word_tokens:
+            return "hybrid"
+        if "integrated" in word_tokens or "intel" in word_tokens or "igpu" in word_tokens:
+            return "integrated"
+        if "discrete" in word_tokens or "dedicated" in word_tokens or "nvidia" in word_tokens or "dgpu" in word_tokens:
+            return "discrete"
+        return "unknown"
+
     def get_mode(self):
         now = time.time()
         if now - self._last_check < 10.0:
@@ -76,9 +90,9 @@ class MUXController:
                 mode = subprocess.check_output([self.prime_select, "query"], stderr=subprocess.STDOUT, timeout=5).decode().strip().lower()
         except Exception as e:
             logger.debug("MUX get_mode error: %s", e)
-        self._cached_mode = mode
+        self._cached_mode = self._normalize_mode(mode)
         self._last_check = now
-        return mode
+        return self._cached_mode
 
     def set_mode(self, mode):
         try:
