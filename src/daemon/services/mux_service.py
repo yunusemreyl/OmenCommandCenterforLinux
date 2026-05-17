@@ -65,14 +65,14 @@ class MUXController:
     @staticmethod
     def _normalize_mode(raw_mode):
         mode = str(raw_mode or "").strip().lower()
-        tokens = set(re.findall(r"[a-z]+", mode))
-        if "hybrid" in tokens or "on-demand" in mode or ("on" in tokens and "demand" in tokens):
+        word_tokens = set(re.findall(r"[a-z]+", mode))
+        if "hybrid" in word_tokens or "on-demand" in mode or ("on" in word_tokens and "demand" in word_tokens):
             return "hybrid"
-        if "offload" in tokens and "nvidia" in tokens:
+        if "offload" in word_tokens and "nvidia" in word_tokens:
             return "hybrid"
-        if "integrated" in tokens or "intel" in tokens or "igpu" in tokens:
+        if "integrated" in word_tokens or "intel" in word_tokens or "igpu" in word_tokens:
             return "integrated"
-        if "discrete" in tokens or "dedicated" in tokens or "nvidia" in tokens or "dgpu" in tokens:
+        if "discrete" in word_tokens or "dedicated" in word_tokens or "nvidia" in word_tokens or "dgpu" in word_tokens:
             return "discrete"
         return "unknown"
 

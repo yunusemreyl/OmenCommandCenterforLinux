@@ -33,7 +33,5 @@ class MUXControllerTest(unittest.TestCase):
             mux_service.MUXController._normalize_mode("nvidia-offload"),
             "hybrid",
         )
-
-
 if __name__ == "__main__":
     unittest.main()
