@@ -100,17 +100,6 @@ class PowerProfileController:
 
     def _get_omen_direct_active(self):
         for path in (
-            "/sys/devices/platform/hp-wmi/thermal_profile",
-            "/sys/devices/platform/hp-omen/thermal_profile",
-        ):
-            if not sysfs_exists(path):
-                continue
-            val = sysfs_read(path, THERMAL_PROFILE_BALANCED)
-            if val == 1:
-                return "performance"
-            return "balanced"
-
-        for path in (
             "/sys/firmware/acpi/platform_profile",
             "/sys/devices/platform/hp-wmi/platform_profile",
         ):
@@ -123,7 +112,60 @@ class PowerProfileController:
                 return "power-saver"
             return "balanced"
 
+        for path in (
+            "/sys/devices/platform/hp-wmi/thermal_profile",
+            "/sys/devices/platform/hp-omen/thermal_profile",
+        ):
+            if not sysfs_exists(path):
+                continue
+            val = sysfs_read(path, THERMAL_PROFILE_BALANCED)
+            if val == 1:
+                return "performance"
+            return "balanced"
+
         return "balanced"
+
+    def _sync_omen_profile(self, profile):
+        target_candidates = {
+            "performance": ("performance",),
+            "balanced": ("balanced",),
+            "power-saver": ("low-power", "quiet", "cool", "power-saver", "balanced"),
+        }.get(profile, ("balanced",))
+
+        for path in (
+            "/sys/firmware/acpi/platform_profile",
+            "/sys/devices/platform/hp-wmi/platform_profile",
+        ):
+            if not sysfs_exists(path):
+                continue
+            choices_raw = sysfs_read_str(f"{path}_choices", "")
+            choices = {
+                normalize_profile_name(token.strip("[]"))
+                for token in choices_raw.split()
+                if token.strip("[]")
+            }
+            target = "balanced"
+            for candidate in target_candidates:
+                if not choices or candidate in choices:
+                    target = candidate
+                    break
+            if sysfs_write(path, target):
+                return True
+            return False
+
+        thermal_val = {"power-saver": "0", "balanced": "0", "performance": "1"}.get(
+            profile, "0"
+        )
+        for path in (
+            "/sys/devices/platform/hp-wmi/thermal_profile",
+            "/sys/devices/platform/hp-omen/thermal_profile",
+        ):
+            if not sysfs_exists(path):
+                continue
+            if sysfs_write(path, thermal_val):
+                return True
+            return False
+        return False
 
     def set_profile(self, profile):
         if not self.available:
@@ -139,16 +181,8 @@ class PowerProfileController:
                 }
                 self.proxy.switch_profile(mapping.get(profile, "balanced"))
             elif self.mode == "omen_direct":
-                val = {"power-saver": "0", "balanced": "0", "performance": "1"}.get(
-                    profile, "0"
-                )
-                for path in (
-                    "/sys/devices/platform/hp-wmi/thermal_profile",
-                    "/sys/devices/platform/hp-omen/thermal_profile",
-                ):
-                    if sysfs_exists(path):
-                        sysfs_write(path, val)
-                        break
+                if not self._sync_omen_profile(profile):
+                    return False
 
             threading.Thread(
                 target=self._sync_hardware_power, args=(profile,), daemon=True
@@ -204,6 +238,7 @@ class PowerProfileController:
 
     def _sync_hardware_power(self, profile):
         """Orchestrate NVIDIA SMI and Kernel WMI power limits."""
+        self._sync_omen_profile(profile)
         self._sync_nvidia_power(profile)
         self._sync_kernel_gpu_power(profile)
 

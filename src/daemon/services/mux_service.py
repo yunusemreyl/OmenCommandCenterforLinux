@@ -30,12 +30,12 @@ class MUXController:
             self.backend = forced
             logger.info("MUX backend: %s (forced)", self.backend)
             return
-        if "prime-select" in available:
-            self.backend = "prime-select"
-        elif "envycontrol" in available:
+        if "envycontrol" in available:
             self.backend = "envycontrol"
         elif "supergfxctl" in available:
             self.backend = "supergfxctl"
+        elif "prime-select" in available:
+            self.backend = "prime-select"
         else:
             self.backend = None
         logger.info("MUX backend: %s (auto)", self.backend or "none")
@@ -62,6 +62,17 @@ class MUXController:
     def get_backend(self):
         return self.backend or "none"
 
+    @staticmethod
+    def _normalize_mode(raw_mode):
+        mode = str(raw_mode or "").strip().lower()
+        if "hybrid" in mode or "on-demand" in mode:
+            return "hybrid"
+        if "integrated" in mode or "intel" in mode or "igpu" in mode:
+            return "integrated"
+        if "discrete" in mode or "dedicated" in mode or "nvidia" in mode or "dgpu" in mode:
+            return "discrete"
+        return "unknown"
+
     def get_mode(self):
         now = time.time()
         if now - self._last_check < 10.0:
@@ -76,9 +87,9 @@ class MUXController:
                 mode = subprocess.check_output([self.prime_select, "query"], stderr=subprocess.STDOUT, timeout=5).decode().strip().lower()
         except Exception as e:
             logger.debug("MUX get_mode error: %s", e)
-        self._cached_mode = mode
+        self._cached_mode = self._normalize_mode(mode)
         self._last_check = now
-        return mode
+        return self._cached_mode
 
     def set_mode(self, mode):
         try:
